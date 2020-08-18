@@ -83,7 +83,7 @@ public:
 
   /**
    * @brief Read data fromt the hardware into the joint using "set_state" function of the Joint class.
-   * This function is always called by the RessourceManger.
+   * This function is always called by the resource manager.
    *
    * @param joint joint where data from the hardware are stored.
    * @return return_type:OK if everything worked as expected, return_type::ERROR otherwise.
@@ -94,7 +94,7 @@ public:
 
   /**
    * @brief Write data from the joint to the hardware using "get_command" function of the Joint class.
-   * This function is always called by the RessourceManger.
+   * This function is always called by the resource manager.
    *
    * @param joint the joint from which data are written to the hardware.
    * @return return_type:OK if everything worked as expected, return_type::ERROR otherwise.
