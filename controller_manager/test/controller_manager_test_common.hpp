@@ -37,11 +37,6 @@ constexpr auto BEST_EFFORT = controller_manager_msgs::srv::SwitchController::Req
 class TestControllerManager : public ::testing::Test
 {
 public:
-  static void SetUpTestCase()
-  {
-    rclcpp::init(0, nullptr);
-  }
-
   void SetUp()
   {
     robot_ = std::make_shared<test_robot_hardware::TestRobotHardware>();

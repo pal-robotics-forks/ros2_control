@@ -26,7 +26,7 @@
 
 TEST_F(TestControllerManager, controller_lifecycle) {
   auto cm = std::make_shared<controller_manager::ControllerManager>(
-    robot_, executor_,
+    executor_,
     "test_controller_manager");
 
 
@@ -123,4 +123,11 @@ TEST_F(TestControllerManager, controller_lifecycle) {
     lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED,
     test_controller->get_lifecycle_node()->get_current_state().id());
   EXPECT_EQ(1, test_controller.use_count());
+}
+
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
