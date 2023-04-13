@@ -50,10 +50,6 @@ constexpr char HW_IF_INTEGRAL_CLAMP_MIN[] = "integral_clamp_min";
 /// Constant defining the feedforward interface name
 constexpr char HW_IF_FEEDFORWARD[] = "feedforward";
 
-// TODO(destogl): use "inline static const"-type when switched to C++17
-/// Definition of standard names for movement interfaces
-const std::vector<const char *> MOVEMENT_INTERFACES = {
-  HW_IF_POSITION, HW_IF_VELOCITY, HW_IF_ACCELERATION, HW_IF_EFFORT};
 }  // namespace hardware_interface
 
 #endif  // HARDWARE_INTERFACE__TYPES__HARDWARE_INTERFACE_TYPE_VALUES_HPP_
