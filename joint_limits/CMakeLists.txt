@@ -8,6 +8,7 @@ endif()
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   pluginlib
+  realtime_tools
   rclcpp
   rclcpp_lifecycle
   urdf
