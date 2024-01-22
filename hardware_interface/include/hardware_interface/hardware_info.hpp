@@ -18,9 +18,11 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "joint_limits/joint_limits.hpp"
 
 namespace hardware_interface
 {
+using ActuatorLimits = joint_limits::JointLimits;
 /**
  * This structure stores information about components defined for a specific hardware
  * in robot's URDF.
@@ -139,6 +141,10 @@ struct HardwareInfo
    * The XML contents prior to parsing
    */
   std::string original_xml;
+  /**
+   * The limits defined in the <actuator> tag within the <ros2_control> tag of the URDF
+   */
+  std::unordered_map<std::string, ActuatorLimits> actuator_limits;
 };
 
 }  // namespace hardware_interface
