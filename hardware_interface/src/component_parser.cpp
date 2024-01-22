@@ -50,6 +50,15 @@ constexpr const auto kRoleAttribute = "role";
 constexpr const auto kReductionAttribute = "mechanical_reduction";
 constexpr const auto kOffsetAttribute = "offset";
 constexpr const auto kIsAsyncAttribute = "is_async";
+constexpr const auto kLimitTag = "limit";
+constexpr const auto kLowerLimitTag = "lower";
+constexpr const auto kUpperLimitTag = "upper";
+constexpr const auto kPositionTag = "position";
+constexpr const auto kVelocityTag = "velocity";
+constexpr const auto kEffortTag = "effort";
+constexpr const auto kAccelerationTag = "acceleration";
+constexpr const auto kDecelerationTag = "deceleration";
+constexpr const auto kJerkTag = "jerk";
 
 }  // namespace
 
