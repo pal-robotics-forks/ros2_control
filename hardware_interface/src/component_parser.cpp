@@ -14,6 +14,7 @@
 
 #include <tinyxml2.h>
 #include <charconv>
+#include <cmath>
 #include <iostream>
 #include <regex>
 #include <stdexcept>
@@ -519,6 +520,97 @@ void auto_fill_transmission_interfaces(HardwareInfo & hardware)
   }
 }
 
+/// Search XML snippet from URDF for information about actuator limits.
+/**
+ * \param[in] actuator_it pointer to the iterator where actuator limits should be found
+ * \return ActuatorLimits filled with information about actuator limits
+ * \throws std::runtime_error if an attribute or tag is not found
+ */
+bool parse_actuator_limits_from_xml(
+  const tinyxml2::XMLElement * actuator_it, std::string & actuator_name,
+  ActuatorLimits & actuator_limits)
+{
+  ActuatorLimits limits;
+
+  // First get the name of the actuator
+  actuator_name = get_attribute_value(actuator_it, kNameAttribute, actuator_it->Name());
+
+  // Parse joints
+  const auto * limits_tag = actuator_it->FirstChildElement(kLimitTag);
+  while (!limits_tag)
+  {
+    std::cerr << "There is no " << kLimitTag << " tag  info within the " << kActuatorTag << " tag!"
+              << std::endl;
+    return false;
+  }
+
+  auto has_attribute =
+    [](const tinyxml2::XMLElement * element_it, const char * attribute_name) -> bool
+  { return element_it->Attribute(attribute_name); };
+
+  // Get lower and upper actuator position limits
+  {
+    if (has_attribute(limits_tag, kLowerLimitTag))
+    {
+      limits.min_position = hardware_interface::stod(
+        get_attribute_value(limits_tag, kLowerLimitTag, limits_tag->Name()));
+      limits.has_position_limits = true;
+    }
+    if (has_attribute(limits_tag, kUpperLimitTag))
+    {
+      limits.max_position = hardware_interface::stod(
+        get_attribute_value(limits_tag, kUpperLimitTag, limits_tag->Name()));
+      limits.has_position_limits = true;
+    }
+    if (!std::isfinite(limits.max_position))
+    {
+      limits.max_position = std::numeric_limits<double>::max();
+    }
+    if (!std::isfinite(limits.min_position))
+    {
+      limits.min_position = std::numeric_limits<double>::min();
+    }
+  }
+
+  // Get limits of velocity, acceleration, deceleration and effort
+  {
+    // Get actuator effort limit (mandatory)
+    limits.max_effort =
+      hardware_interface::stod(get_attribute_value(limits_tag, kEffortTag, limits_tag->Name()));
+    limits.has_effort_limits = true;
+
+    // Get actuator velocity limit (mandatory)
+    limits.max_velocity =
+      hardware_interface::stod(get_attribute_value(limits_tag, kVelocityTag, limits_tag->Name()));
+    limits.has_velocity_limits = true;
+
+    // Get actuator acceleration limit
+    if (has_attribute(limits_tag, kAccelerationTag))
+    {
+      limits.max_acceleration = hardware_interface::stod(
+        get_attribute_value(limits_tag, kAccelerationTag, limits_tag->Name()));
+      limits.has_acceleration_limits = true;
+    }
+
+    // Get actuator deceleration limit
+    if (has_attribute(limits_tag, kDecelerationTag))
+    {
+      limits.max_deceleration = hardware_interface::stod(
+        get_attribute_value(limits_tag, kDecelerationTag, limits_tag->Name()));
+      limits.has_deceleration_limits = true;
+    }
+
+    // Get actuator jerk limit
+    if (has_attribute(limits_tag, kJerkTag))
+    {
+      limits.max_jerk =
+        hardware_interface::stod(get_attribute_value(limits_tag, kJerkTag, limits_tag->Name()));
+      limits.has_jerk_limits = true;
+    }
+  }
+  return true;
+}
+
 /// Parse a control resource from an "ros2_control" tag.
 /**
  * \param[in] ros2_control_it pointer to ros2_control element
@@ -565,6 +657,15 @@ HardwareInfo parse_resource_from_xml(
     else if (!std::string(kTransmissionTag).compare(ros2_control_child_it->Name()))
     {
       hardware.transmissions.push_back(parse_transmission_from_xml(ros2_control_child_it));
+    }
+    else if (!std::string(kActuatorTag).compare(ros2_control_child_it->Name()))
+    {
+      std::string actuator_name;
+      ActuatorLimits limits;
+      if (parse_actuator_limits_from_xml(ros2_control_child_it, actuator_name, limits))
+      {
+        hardware.actuator_limits[actuator_name] = limits;
+      }
     }
     else
     {
