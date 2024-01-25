@@ -14,6 +14,8 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   rcutils
   TinyXML2
   tinyxml2_vendor
+  joint_limits
+  urdf
 )
 
 find_package(ament_cmake REQUIRED)
