@@ -22,6 +22,9 @@
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "joint_limits/joint_limits.hpp"
 #include "rclcpp/duration.hpp"
+#include "rclcpp/node_interfaces/node_clock_interface.hpp"
+#include "rclcpp/node_interfaces/node_logging_interface.hpp"
+#include "rclcpp/node_interfaces/node_parameters_interface.hpp"
 
 namespace hardware_interface
 {
@@ -31,6 +34,84 @@ const std::string get_component_interface_name(
   return prefix_name + "/" + interface_name;
 }
 
+#define ROS2_CONTROL_THROW(message)                                                       \
+  throw std::runtime_error(                                                               \
+    ("File: '" + std::string(__FILE__) + "' Function/method: '" + std::string(__func__) + \
+     "' Line: '" + std::to_string(__LINE__) + "' || " + std::string(message) + "\n"))
+
+#define ROS2_CONTROL_ASSERT(condition, message) \
+  if (!(condition))                             \
+  {                                             \
+    ROS2_CONTROL_THROW(message);                \
+  }
+
+struct JointInterfaceState
+{
+public:
+  std::optional<double> position = std::nullopt;
+  std::optional<double> velocity = std::nullopt;
+  std::optional<double> acceleration = std::nullopt;
+  std::optional<double> jerk = std::nullopt;
+  std::optional<double> effort = std::nullopt;
+};
+
+class SaturationLimitHandle
+{
+public:
+  SaturationLimitHandle() {}
+
+  void init(
+    std::vector<joint_limits::JointLimits> & limits,
+    const rclcpp::node_interfaces::NodeParametersInterface::SharedPtr & param_itf,
+    const rclcpp::node_interfaces::NodeClockInterface::SharedPtr & clock_itf,
+    const rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr & logging_itf)
+  {
+    limits_ = limits;
+    logging_itf_ = logging_itf;
+  }
+
+  virtual bool configure(std::optional<std::vector<JointInterfaceState>> init_state = std::nullopt)
+  {
+    return true;
+  }
+
+  virtual bool enforce(
+    const std::vector<JointInterfaceState> & state, std::vector<JointInterfaceState> & command,
+    const rclcpp::Duration & dt)
+  {
+    const auto dt_seconds = dt.seconds();
+    if (dt_seconds <= 0.0)
+    {
+      return false;
+    }
+    ROS2_CONTROL_ASSERT(
+      (state.size() == command.size()), "The parsed state and command do not have the same size!");
+
+    for (size_t index = 0; index < state.size(); index++)
+    {
+      if (limits_[index].has_position_limits && command[index].position)
+      {
+        // clamp input pos_cmd
+        command[index].position = std::clamp(
+          command[index].position.value(), limits_[index].min_position,
+          limits_[index].max_position);
+      }
+    }
+    return true;
+  }
+
+protected:
+  std::string prefix_name_;
+  std::string interface_name_;
+  double prev_cmd_;
+
+  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr logging_itf_;
+  rclcpp::node_interfaces::NodeClockInterface::SharedPtr clock_itf_;
+  std::vector<joint_limits::JointLimits> limits_;
+  std::unordered_map<std::string, std::reference_wrapper<const StateInterface>> actual_;
+  std::unordered_map<std::string, std::reference_wrapper<CommandInterface>> reference_;
+};
+/*
 class SaturationHandle
 {
 public:
@@ -66,11 +147,15 @@ public:
     limits_(limits)
   {
     prev_cmd_ = 0.0;
-    reference_[HW_IF_POSITION] =
-      std::ref(command_interface_map[get_component_interface_name(prefix_name, HW_IF_POSITION)]);
     // TODO(saikishor): Check and handle the case when the position state interface might not exist
-    actual_[HW_IF_POSITION] =
-      std::cref(state_interface_map[get_component_interface_name(prefix_name, HW_IF_POSITION)]);
+    actual_.insert(
+      {HW_IF_POSITION, std::cref(state_interface_map
+                                   .find(get_component_interface_name(prefix_name, HW_IF_POSITION))
+                                   ->second)});
+    reference_.insert(
+      {HW_IF_POSITION, std::ref(command_interface_map
+                                  .find(get_component_interface_name(prefix_name, HW_IF_POSITION))
+                                  ->second)});
   }
 
   virtual void enforce_limits(const rclcpp::Duration & period) override
@@ -260,10 +345,9 @@ public:
     std::map<std::string, CommandInterface> & command_interface_map)
   {
     auto interface_exist =
-      [&](
-        const std::string & joint_name, const std::string & interface_name, const auto & interfaces)
+      [&](const std::string & jnt_name, const std::string & interface_name, const auto & interfaces)
     {
-      auto it = interfaces.find(get_component_interface_name(joint_name, interface_name));
+      auto it = interfaces.find(get_component_interface_name(jnt_name, interface_name));
       return it != interfaces.end();
     };
     if (interface_exist(joint_name, HW_IF_POSITION, command_interface_map))
@@ -294,6 +378,7 @@ public:
 private:
   std::vector<std::shared_ptr<SaturationHandle>> impl_;
 };
+*/
 }  // namespace hardware_interface
 
 #endif  // HARDWARE_INTERFACE__LIMITS_HANDLE_HPP

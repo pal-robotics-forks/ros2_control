@@ -455,16 +455,16 @@ public:
     hardware_info_map_[hardware.get_name()].command_interfaces = add_command_interfaces(interfaces);
   }
 
-  void import_joint_limiters(const HardwareInfo & hardware_info)
-  {
-    std::vector<JointSaturationInterface> limit_handles;
-    for (const auto & [key, value] : hardware_info.limits)
-    {
-      limit_handles.push_back(
-        JointSaturationInterface(key, value, state_interface_map_, command_interface_map_));
-    }
-    hw_command_limiter_[hardware_info.name] = limit_handles;
-  }
+  //  void import_joint_limiters(const HardwareInfo & hardware_info)
+  //  {
+  //    std::vector<JointSaturationInterface> limit_handles;
+  //    for (const auto & [key, value] : hardware_info.limits)
+  //    {
+  //      limit_handles.push_back(
+  //        JointSaturationInterface(key, value, state_interface_map_, command_interface_map_));
+  //    }
+  //    hw_command_limiter_[hardware_info.name] = limit_handles;
+  //  }
 
   /// Adds exported command interfaces into internal storage.
   /**
@@ -531,7 +531,7 @@ public:
       {
         import_state_interfaces(container.back());
         import_command_interfaces(container.back());
-        import_joint_limiters(hardware_info);
+        //        import_joint_limiters(hardware_info);
       }
       else
       {
@@ -591,7 +591,7 @@ public:
       {
         import_state_interfaces(container.back());
         import_command_interfaces(container.back());
-        import_joint_limiters(hardware_info);
+        //        import_joint_limiters(hardware_info);
       }
       else
       {
@@ -728,7 +728,7 @@ public:
   std::map<std::string, CommandInterface> command_interface_map_;
 
   /// Saturation handle linked to the joints within the hardware
-  std::unordered_map<std::string, std::vector<JointSaturationInterface>> hw_command_limiter_;
+  //  std::unordered_map<std::string, std::vector<JointSaturationInterface>> hw_command_limiter_;
 
   /// Vectors with interfaces available to controllers (depending on hardware component state)
   std::vector<std::string> available_state_interfaces_;
@@ -1402,15 +1402,16 @@ HardwareReadWriteStatus ResourceManager::write(
       }
     }
   };
-
-  // Enforce limits on the commands
-  for (auto & hw_limiter : resource_storage_->hw_command_limiter_)
-  {
-    for (auto & joint_limiters : hw_limiter.second)
+  /*
+    // Enforce limits on the commands
+    for (auto & hw_limiter : resource_storage_->hw_command_limiter_)
     {
-      joint_limiters.enforce_limits(period);
+      for (auto & joint_limiters : hw_limiter.second)
+      {
+        joint_limiters.enforce_limits(period);
+      }
     }
-  }
+  */
   write_components(resource_storage_->actuators_);
   write_components(resource_storage_->systems_);
 
