@@ -246,6 +246,12 @@ public:
   CONTROLLER_INTERFACE_PUBLIC
   virtual bool is_in_chained_mode() const = 0;
 
+  /**
+   * Get logger of the controller's lifecycle node.
+   */
+  CONTROLLER_INTERFACE_PUBLIC
+  rclcpp::Logger get_logger() const;
+
 protected:
   std::vector<hardware_interface::LoanedCommandInterface> command_interfaces_;
   std::vector<hardware_interface::LoanedStateInterface> state_interfaces_;

@@ -55,7 +55,7 @@ ChainableControllerInterface::export_reference_interfaces()
     // TODO(destogl): Should here be "FATAL"? It is fatal in terms of controller but not for the
     // framework
     RCLCPP_FATAL(
-      get_node()->get_logger(),
+      get_logger(),
       "The internal storage for reference values 'reference_interfaces_' variable has size '%zu', "
       "but it is expected to have the size '%zu' equal to the number of exported reference "
       "interfaces. No reference interface will be exported. Please correct and recompile "
@@ -70,7 +70,7 @@ ChainableControllerInterface::export_reference_interfaces()
     if (interface.get_prefix_name() != get_node()->get_name())
     {
       RCLCPP_FATAL(
-        get_node()->get_logger(),
+        get_logger(),
         "The name of the interface '%s' does not begin with the controller's name. This is "
         "mandatory "
         " for reference interfaces. No reference interface will be exported. Please correct and "
@@ -100,7 +100,7 @@ bool ChainableControllerInterface::set_chained_mode(bool chained_mode)
   else
   {
     RCLCPP_ERROR(
-      get_node()->get_logger(),
+      get_logger(),
       "Can not change controller's chained mode because it is no in '%s' state. "
       "Current state is '%s'.",
       hardware_interface::lifecycle_state_names::UNCONFIGURED, get_state().label().c_str());

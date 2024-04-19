@@ -136,4 +136,6 @@ bool ControllerInterfaceBase::is_async() const { return is_async_; }
 
 const std::string & ControllerInterfaceBase::get_robot_description() const { return urdf_; }
 
+rclcpp::Logger ControllerInterfaceBase::get_logger() const { return get_node()->get_logger(); }
+
 }  // namespace controller_interface

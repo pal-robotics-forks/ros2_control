@@ -38,7 +38,7 @@ public:
   {
     if (get_node()->get_parameters("parameter_list", params))
     {
-      RCLCPP_INFO_STREAM(get_node()->get_logger(), "I found " << params.size() << " parameters.");
+      RCLCPP_INFO_STREAM(get_logger(), "I found " << params.size() << " parameters.");
       return LifecycleNodeInterface::CallbackReturn::SUCCESS;
     }
     return LifecycleNodeInterface::CallbackReturn::FAILURE;
