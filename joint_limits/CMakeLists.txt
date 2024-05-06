@@ -45,6 +45,7 @@ target_compile_definitions(joint_limiter_interface PRIVATE "JOINT_LIMITS_BUILDIN
 
 add_library(joint_saturation_limiter SHARED
   src/joint_saturation_limiter.cpp
+  src/joint_range_limiter.cpp
 )
 target_compile_features(joint_saturation_limiter PUBLIC cxx_std_17)
 target_include_directories(joint_saturation_limiter PUBLIC
@@ -87,6 +88,15 @@ if(BUILD_TESTING)
   )
   target_include_directories(test_joint_saturation_limiter PRIVATE include)
   target_link_libraries(test_joint_saturation_limiter joint_limiter_interface)
+  ament_target_dependencies(
+    test_joint_saturation_limiter
+    pluginlib
+    rclcpp
+  )
+
+  ament_add_gtest(test_joint_range_limiter test/test_joint_range_limiter.cpp)
+  target_include_directories(test_joint_range_limiter PRIVATE include)
+  target_link_libraries(test_joint_range_limiter joint_limiter_interface)
   ament_target_dependencies(
     test_joint_saturation_limiter
     pluginlib
