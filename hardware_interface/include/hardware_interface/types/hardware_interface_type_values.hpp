@@ -47,7 +47,6 @@ constexpr char HW_IF_INTEGRAL_CLAMP_MAX[] = "integral_clamp_max";
 constexpr char HW_IF_INTEGRAL_CLAMP_MIN[] = "integral_clamp_min";
 /// Constant defining the feedforward interface name
 constexpr char HW_IF_FEEDFORWARD[] = "feedforward";
-
 }  // namespace hardware_interface
 
 #endif  // HARDWARE_INTERFACE__TYPES__HARDWARE_INTERFACE_TYPE_VALUES_HPP_
