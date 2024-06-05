@@ -16,6 +16,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
 )
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_gen_version_h REQUIRED)
 find_package(backward_ros REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
@@ -42,15 +43,29 @@ ament_target_dependencies(joint_limiter_interface PUBLIC ${THIS_PACKAGE_INCLUDE_
 # which is appropriate when building the dll but not consuming it.
 target_compile_definitions(joint_limiter_interface PRIVATE "JOINT_LIMITS_BUILDING_DLL")
 
+add_library(joint_limits_helpers SHARED
+  src/joint_limits_helpers.cpp
+)
+target_compile_features(joint_limits_helpers PUBLIC cxx_std_17)
+target_include_directories(joint_limits_helpers PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/joint_limits>
+)
+ament_target_dependencies(joint_limits_helpers PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS})
+
 
 add_library(joint_saturation_limiter SHARED
   src/joint_saturation_limiter.cpp
+  src/joint_range_limiter.cpp
+  src/soft_joint_limiter.cpp
 )
 target_compile_features(joint_saturation_limiter PUBLIC cxx_std_17)
 target_include_directories(joint_saturation_limiter PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/joint_limits>
 )
+target_link_libraries(joint_saturation_limiter PUBLIC joint_limits_helpers)
+
 ament_target_dependencies(joint_saturation_limiter PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS})
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
@@ -93,6 +108,24 @@ if(BUILD_TESTING)
     rclcpp
   )
 
+  ament_add_gtest(test_joint_range_limiter test/test_joint_range_limiter.cpp)
+  target_include_directories(test_joint_range_limiter PRIVATE include)
+  target_link_libraries(test_joint_range_limiter joint_limiter_interface)
+  ament_target_dependencies(
+    test_joint_range_limiter
+    pluginlib
+    rclcpp
+  )
+
+  ament_add_gtest(test_soft_joint_limiter test/test_soft_joint_limiter.cpp)
+  target_include_directories(test_soft_joint_limiter PRIVATE include)
+  target_link_libraries(test_soft_joint_limiter joint_limiter_interface)
+  ament_target_dependencies(
+    test_soft_joint_limiter
+    pluginlib
+    rclcpp
+  )
+
 endif()
 
 install(
@@ -103,6 +136,7 @@ install(TARGETS
     joint_limits
     joint_limiter_interface
     joint_saturation_limiter
+    joint_limits_helpers
   EXPORT export_joint_limits
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

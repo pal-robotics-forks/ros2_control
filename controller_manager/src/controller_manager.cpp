@@ -707,7 +707,8 @@ controller_interface::return_type ControllerManager::configure_controller(
   if (controller->is_async())
   {
     async_controller_threads_.emplace(
-      controller_name, std::make_unique<ControllerThreadWrapper>(controller, update_rate_));
+      controller_name,
+      std::make_unique<controller_interface::AsyncControllerThread>(controller, update_rate_));
   }
 
   const auto controller_update_rate = controller->get_update_rate();
@@ -2146,6 +2147,17 @@ controller_interface::return_type ControllerManager::update(
         run_controller_at_cm_rate ? period
                                   : rclcpp::Duration::from_seconds((1.0 / controller_update_rate));
 
+      if (
+        *loaded_controller.next_update_cycle_time ==
+        rclcpp::Time(0, 0, this->get_node_clock_interface()->get_clock()->get_clock_type()))
+      {
+        // it is zero after activation
+        RCLCPP_DEBUG(
+          get_logger(), "Setting next_update_cycle_time to %fs for the controller : %s",
+          time.seconds(), loaded_controller.info.name.c_str());
+        *loaded_controller.next_update_cycle_time = time;
+      }
+
       bool controller_go =
         (time ==
          rclcpp::Time(0, 0, this->get_node_clock_interface()->get_clock()->get_clock_type())) ||
@@ -2181,12 +2193,6 @@ controller_interface::return_type ControllerManager::update(
           controller_ret = controller_interface::return_type::ERROR;
         }
 
-        if (
-          *loaded_controller.next_update_cycle_time ==
-          rclcpp::Time(0, 0, this->get_node_clock_interface()->get_clock()->get_clock_type()))
-        {
-          *loaded_controller.next_update_cycle_time = time;
-        }
         *loaded_controller.next_update_cycle_time += controller_period;
 
         if (controller_ret != controller_interface::return_type::OK)
@@ -2316,6 +2322,13 @@ std::pair<std::string, std::string> ControllerManager::split_command_interface(
 }
 
 unsigned int ControllerManager::get_update_rate() const { return update_rate_; }
+
+void ControllerManager::shutdown_async_controllers_and_components()
+{
+  async_controller_threads_.erase(
+    async_controller_threads_.begin(), async_controller_threads_.end());
+  resource_manager_->shutdown_async_components();
+}
 
 void ControllerManager::propagate_deactivation_of_chained_mode(
   const std::vector<ControllerSpec> & controllers)
