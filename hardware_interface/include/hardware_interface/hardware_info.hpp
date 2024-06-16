@@ -174,6 +174,8 @@ struct HardwareInfo
   std::string type;
   ///  Hardware group to which the hardware belongs.
   std::string group;
+  /// Component's read and write rates in Hz.
+  unsigned int rw_rate;
   /// Component is async
   bool is_async;
   /// Async thread priority
