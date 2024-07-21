@@ -31,31 +31,33 @@ TestController::TestController()
 
 controller_interface::InterfaceConfiguration TestController::command_interface_configuration() const
 {
+  const auto lifecycle_state = get_state();
   if (
-    get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
-    get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    lifecycle_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
+    lifecycle_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
     return cmd_iface_cfg_;
   }
   else
   {
     throw std::runtime_error(
-      "Can not get command interface configuration until the controller is configured.");
+      "Can not get command interface configuration until the controller is configured. The current state is : " + lifecycle_state.label() + " and ID : " + std::to_string(lifecycle_state.id()) + " and ACTIVE is : " + std::to_string(lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) + " and INACTIVE IS : " + std::to_string(lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE));
   }
 }
 
 controller_interface::InterfaceConfiguration TestController::state_interface_configuration() const
 {
+  const auto lifecycle_state = get_state();
   if (
-    get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
-    get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    lifecycle_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
+    lifecycle_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
     return state_iface_cfg_;
   }
   else
   {
     throw std::runtime_error(
-      "Can not get state interface configuration until the controller is configured.");
+      "Can not get state interface configuration until the controller is configured. The current state is : " + lifecycle_state.label() + " and ID : " + std::to_string(lifecycle_state.id()) + " and ACTIVE is : " + std::to_string(lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) + " and INACTIVE IS : " + std::to_string(lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE));
   }
 }
 
