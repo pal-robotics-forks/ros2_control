@@ -960,8 +960,8 @@ controller_interface::return_type ControllerManager::switch_controller(
       }
       else
       {
-        RCLCPP_DEBUG(
-          get_logger(), "Found controller '%s' that needs to be %sed in list of controllers",
+        RCLCPP_INFO(
+          get_logger(), "Found controller '%s' that needs to be %sed in list of controllers. Adding to the list!",
           controller.c_str(), action.c_str());
         request_list.push_back(controller);
       }
@@ -1216,6 +1216,8 @@ controller_interface::return_type ControllerManager::switch_controller(
         command_interface_names.end());
     };
 
+    try
+    {
     if (in_activate_list)
     {
       extract_interfaces_for_controller(controller, activate_command_interface_request_);
@@ -1223,6 +1225,14 @@ controller_interface::return_type ControllerManager::switch_controller(
     if (in_deactivate_list)
     {
       extract_interfaces_for_controller(controller, deactivate_command_interface_request_);
+    }
+    }
+    catch (const std::runtime_error & e)
+    {
+      RCLCPP_ERROR(
+        get_logger(), "Could not extract interfaces for controller '%s': %s",
+        controller.info.name.c_str(), e.what());
+      throw e;
     }
 
     // cache mapping between hardware and controllers for stopping when read/write error happens
@@ -1234,6 +1244,9 @@ controller_interface::return_type ControllerManager::switch_controller(
     {
       std::vector<std::string> interface_names = {};
 
+      try
+      {
+      
       auto command_interface_config = controller.c->command_interface_configuration();
       if (command_interface_config.type == controller_interface::interface_configuration_type::ALL)
       {
@@ -1262,6 +1275,14 @@ controller_interface::return_type ControllerManager::switch_controller(
       interface_names.insert(interface_names.end(), interfaces.begin(), interfaces.end());
 
       resource_manager_->cache_controller_to_hardware(controller.info.name, interface_names);
+      }
+      catch(const std::runtime_error& e)
+      {
+        RCLCPP_ERROR(
+          get_logger(), "Could not cache controller '%s' to hardware: %s",
+          controller.info.name.c_str(), e.what());
+        throw e;
+      }
     }
   }
 
@@ -1322,6 +1343,9 @@ controller_interface::return_type ControllerManager::switch_controller(
   // update the claimed interface controller info
   for (auto & controller : to)
   {
+    try
+    {
+    
     if (is_controller_active(controller.c))
     {
       auto command_interface_config = controller.c->command_interface_configuration();
@@ -1340,7 +1364,23 @@ controller_interface::return_type ControllerManager::switch_controller(
     {
       controller.info.claimed_interfaces.clear();
     }
+    }
+    catch(const std::runtime_error& e)
+    {
+      RCLCPP_ERROR(
+        get_logger(), "Could not update claimed interfaces for controller '%s': %s",
+        controller.info.name.c_str(), e.what());
+      throw e;
+    }
   }
+
+  std::stringstream str;
+  str << "Successfully switched controllers. Activated: ";
+  for (const auto & controller : activate_request_)
+  {
+    str << controller << ", ";
+  }
+  RCLCPP_INFO_STREAM(get_logger(), str.str());
 
   // switch lists
   rt_controllers_wrapper_.switch_updated_list(guard);
@@ -1539,6 +1579,13 @@ void ControllerManager::activate_controllers(
   const std::vector<ControllerSpec> & rt_controller_list,
   const std::vector<std::string> controllers_to_activate)
 {
+  std::stringstream str;
+  str << "Activating controllers: ";
+  for (const auto & controller : controllers_to_activate)
+  {
+    str << controller << ", ";
+  }
+  RCLCPP_INFO_STREAM(get_logger(), str.str());
   for (const auto & controller_name : controllers_to_activate)
   {
     auto found_it = std::find_if(
@@ -1558,10 +1605,13 @@ void ControllerManager::activate_controllers(
       rclcpp::Time(0, 0, this->get_node_clock_interface()->get_clock()->get_clock_type());
 
     bool assignment_successful = true;
+    std::vector<std::string> command_interface_names = {};
+    RCLCPP_INFO(get_logger(), "Activating controller '%s' with current state : %s", controller_name.c_str(), controller->get_state().label().c_str());
+    try
+    {
     // assign command interfaces to the controller
     auto command_interface_config = controller->command_interface_configuration();
     // default to controller_interface::configuration_type::NONE
-    std::vector<std::string> command_interface_names = {};
     if (command_interface_config.type == controller_interface::interface_configuration_type::ALL)
     {
       command_interface_names = resource_manager_->available_command_interfaces();
@@ -1571,6 +1621,14 @@ void ControllerManager::activate_controllers(
       controller_interface::interface_configuration_type::INDIVIDUAL)
     {
       command_interface_names = command_interface_config.names;
+    }
+    }
+    catch(const std::runtime_error& e)
+    {
+      RCLCPP_ERROR(
+        get_logger(), "Could not extract command interfaces for controller '%s': %s",
+        controller_name.c_str(), e.what());
+      throw e;
     }
     std::vector<hardware_interface::LoanedCommandInterface> command_loans;
     command_loans.reserve(command_interface_names.size());
@@ -1603,10 +1661,12 @@ void ControllerManager::activate_controllers(
       continue;
     }
 
-    // assign state interfaces to the controller
-    auto state_interface_config = controller->state_interface_configuration();
     // default to controller_interface::configuration_type::NONE
     std::vector<std::string> state_interface_names = {};
+    try
+    {
+    // assign state interfaces to the controller
+    auto state_interface_config = controller->state_interface_configuration();
     if (state_interface_config.type == controller_interface::interface_configuration_type::ALL)
     {
       state_interface_names = resource_manager_->available_state_interfaces();
@@ -1615,6 +1675,14 @@ void ControllerManager::activate_controllers(
       state_interface_config.type == controller_interface::interface_configuration_type::INDIVIDUAL)
     {
       state_interface_names = state_interface_config.names;
+    }
+    }
+    catch(const std::runtime_error& e)
+    {
+      RCLCPP_ERROR(
+        get_logger(), "Could not extract state interfaces for controller '%s': %s",
+        controller_name.c_str(), e.what());
+      throw e;
     }
     std::vector<hardware_interface::LoanedStateInterface> state_loans;
     state_loans.reserve(state_interface_names.size());
@@ -1642,6 +1710,7 @@ void ControllerManager::activate_controllers(
     try
     {
       const auto new_state = controller->get_node()->activate();
+      const auto current_state = controller->get_state();
       if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
       {
         RCLCPP_ERROR(
@@ -1650,6 +1719,13 @@ void ControllerManager::activate_controllers(
           controller->get_node()->get_name(), new_state.label().c_str(), new_state.id(),
           hardware_interface::lifecycle_state_names::ACTIVE,
           lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+      }
+      if(new_state.id() != current_state.id())
+      {
+        RCLCPP_WARN(
+          get_logger(),
+          "Controller '%s' current state : '%s' doesn't match the new state : '%s' after activation!",
+          controller->get_node()->get_name(), current_state.label().c_str(), new_state.label().c_str());
       }
     }
     catch (const std::exception & e)
@@ -2407,7 +2483,7 @@ void ControllerManager::propagate_deactivation_of_chained_mode(
           controller.info.name.c_str());
         break;
       }
-
+      try{
       const auto ctrl_cmd_itf_names = controller.c->command_interface_configuration().names;
       const auto ctrl_state_itf_names = controller.c->state_interface_configuration().names;
       auto ctrl_itf_names = ctrl_cmd_itf_names;
@@ -2433,6 +2509,14 @@ void ControllerManager::propagate_deactivation_of_chained_mode(
           }
         }
       }
+      }
+      catch (const std::runtime_error & e)
+      {
+        RCLCPP_ERROR(
+          get_logger(), "Caught exception while propagating deactivation of chained mode: %s",
+          e.what());
+          throw e;
+      }
     }
   }
 }
@@ -2446,6 +2530,8 @@ controller_interface::return_type ControllerManager::check_following_controllers
     get_logger(), "Checking following controllers of preceding controller with name '%s'.",
     controller_it->info.name.c_str());
 
+  try
+  {
   const auto controller_cmd_interfaces = controller_it->c->command_interface_configuration().names;
   const auto controller_state_interfaces = controller_it->c->state_interface_configuration().names;
   // get all interfaces of the controller
@@ -2570,6 +2656,14 @@ controller_interface::return_type ControllerManager::check_following_controllers
           following_ctrl_it->info.name.c_str());
       }
     }
+  }
+  }
+  catch (const std::runtime_error &e)
+  {
+    RCLCPP_ERROR(
+      get_logger(), "Caught exception while checking following controllers for activate: %s",
+      e.what());
+    throw e;
   }
   return controller_interface::return_type::OK;
 };

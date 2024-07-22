@@ -400,8 +400,24 @@ def main(args=None):
                         bcolors.FAIL + "Failed to configure controller" + bcolors.ENDC
                     )
                     return 1
+                else:
+                    node.get_logger().info(
+                        bcolors.OKGREEN
+                        + "Configured "
+                        + bcolors.BOLD
+                        + prefixed_controller_name
+                        + bcolors.ENDC
+                        + " successfully"
+                    )
 
                 if not args.inactive and not args.activate_as_group:
+                    node.get_logger().info(
+                        bcolors.OKBLUE
+                        + "Activating "
+                        + bcolors.BOLD
+                        + prefixed_controller_name
+                        + bcolors.ENDC
+                    )
                     ret = switch_controllers(
                         node, controller_manager_name, [], [controller_name], True, True, 5.0
                     )
@@ -420,6 +436,13 @@ def main(args=None):
                     )
 
         if not args.inactive and args.activate_as_group:
+            node.get_logger().info(
+                        bcolors.OKBLUE
+                        + "Activating all controllers : "
+                        + bcolors.BOLD
+                        + ", ".join(controller_names)
+                        + bcolors.ENDC
+                    )
             ret = switch_controllers(
                 node, controller_manager_name, [], controller_names, True, True, 5.0
             )
