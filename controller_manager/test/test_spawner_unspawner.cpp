@@ -41,6 +41,7 @@ public:
       std::chrono::milliseconds(10),
       [&]()
       {
+        time_ += PERIOD;
         cm_->read(time_, PERIOD);
         cm_->update(time_, PERIOD);
         cm_->write(time_, PERIOD);

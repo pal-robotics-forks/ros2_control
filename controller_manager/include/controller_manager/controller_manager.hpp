@@ -239,7 +239,7 @@ protected:
     const ControllerSpec & controller);
 
   CONTROLLER_MANAGER_PUBLIC
-  void manage_switch();
+  void manage_switch(const rclcpp::Time & time);
 
   /// Deactivate chosen controllers from real-time controller list.
   /**

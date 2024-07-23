@@ -2222,7 +2222,7 @@ void ControllerManager::read(const rclcpp::Time & time, const rclcpp::Duration &
   }
 }
 
-void ControllerManager::manage_switch()
+void ControllerManager::manage_switch(const rclcpp::Time & time)
 {
   // Ask hardware interfaces to change mode
   if (!resource_manager_->perform_command_mode_switch(
@@ -2239,6 +2239,7 @@ void ControllerManager::manage_switch()
   switch_chained_mode(to_chained_mode_request_, true);
   switch_chained_mode(from_chained_mode_request_, false);
 
+  RCLCPP_INFO_STREAM(get_logger(), "Entering manager switch and before activate controllers. " << time.nanoseconds());
   // activate controllers once the switch is fully complete
   if (!switch_params_.activate_asap)
   {
@@ -2252,6 +2253,8 @@ void ControllerManager::manage_switch()
 
   // All controllers switched --> switching done
   switch_params_.do_switch = false;
+
+  RCLCPP_INFO_STREAM(get_logger(), "Switching done : " << switch_params_.do_switch << " at " << time.nanoseconds());
 }
 
 controller_interface::return_type ControllerManager::update(
@@ -2350,7 +2353,7 @@ controller_interface::return_type ControllerManager::update(
   // there are controllers to (de)activate
   if (switch_params_.do_switch)
   {
-    manage_switch();
+    manage_switch(time);
   }
 
   return ret;
