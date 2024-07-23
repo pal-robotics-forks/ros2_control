@@ -1323,17 +1323,17 @@ controller_interface::return_type ControllerManager::switch_controller(
   switch_params_.activate_asap = activate_asap;
   switch_params_.init_time = rclcpp::Clock().now();
   switch_params_.timeout = timeout;
+  //change the timeout nanoseconds to chrono
+  std::chrono::nanoseconds chrono_timeout = std::chrono::nanoseconds(1000000000);
   switch_params_.do_switch = true;
 
   // wait until switch is finished
   RCLCPP_DEBUG(get_logger(), "Requested atomic controller switch from realtime loop");
-  while (rclcpp::ok() && switch_params_.do_switch)
+  std::unique_lock<std::mutex> lock(switch_lock_);
+  if(!switch_cv_.wait_for(lock, chrono_timeout, [this](){return !switch_params_.do_switch;}))
   {
-    if (!rclcpp::ok())
-    {
-      return controller_interface::return_type::ERROR;
-    }
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
+    RCLCPP_ERROR(get_logger(), "Switching controllers timed out!");
+    return controller_interface::return_type::ERROR;
   }
 
   // copy the controllers spec from the used to the unused list
@@ -2224,6 +2224,7 @@ void ControllerManager::read(const rclcpp::Time & time, const rclcpp::Duration &
 
 void ControllerManager::manage_switch(const rclcpp::Time & time)
 {
+  std::lock_guard<std::mutex> guard(switch_lock_);
   // Ask hardware interfaces to change mode
   if (!resource_manager_->perform_command_mode_switch(
         activate_command_interface_request_, deactivate_command_interface_request_))
@@ -2255,6 +2256,7 @@ void ControllerManager::manage_switch(const rclcpp::Time & time)
   switch_params_.do_switch = false;
 
   RCLCPP_INFO_STREAM(get_logger(), "Switching done : " << switch_params_.do_switch << " at " << time.nanoseconds());
+  switch_cv_.notify_all();
 }
 
 controller_interface::return_type ControllerManager::update(

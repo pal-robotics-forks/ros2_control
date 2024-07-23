@@ -600,6 +600,8 @@ private:
   };
 
   SwitchParams switch_params_;
+    std::mutex switch_lock_;
+    std::condition_variable switch_cv_;
 
   std::unordered_map<std::string, std::unique_ptr<controller_interface::AsyncControllerThread>>
     async_controller_threads_;
