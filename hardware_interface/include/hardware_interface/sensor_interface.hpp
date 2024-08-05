@@ -15,6 +15,7 @@
 #ifndef HARDWARE_INTERFACE__SENSOR_INTERFACE_HPP_
 #define HARDWARE_INTERFACE__SENSOR_INTERFACE_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -159,7 +160,7 @@ public:
       if (!trigger_status)
       {
         RCLCPP_WARN(
-          rclcpp::get_logger("SensorInterface"),
+          get_logger(),
           "Trigger read called while read async handler is still in progress for hardware "
           "interface : '%s'. Failed to trigger read cycle!",
           info_.name.c_str());
