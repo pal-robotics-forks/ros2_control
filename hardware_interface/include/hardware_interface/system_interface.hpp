@@ -355,6 +355,12 @@ protected:
    */
   rclcpp::Clock::SharedPtr get_clock() const { return clock_interface_->get_clock(); }
 
+  /// Get the hardware info of the SystemInterface.
+  /**
+   * \return hardware info of the SystemInterface.
+   */
+  const HardwareInfo & get_hardware_info() const { return info_; }
+
   HardwareInfo info_;
   rclcpp_lifecycle::State lifecycle_state_;
   std::unique_ptr<realtime_tools::AsyncFunctionHandler<return_type>> async_handler_;
