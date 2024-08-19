@@ -2664,7 +2664,8 @@ rclcpp::NodeOptions ControllerManager::determine_controller_node_options(
   auto check_for_element = [](const auto & list, const auto & element)
   { return std::find(list.begin(), list.end(), element) != list.end(); };
 
-  rclcpp::NodeOptions controller_node_options = rclcpp::NodeOptions().enable_logger_service(true);
+  rclcpp::NodeOptions controller_node_options =
+    rclcpp::NodeOptions().enable_logger_service(true).use_global_arguments(false);
   std::vector<std::string> node_options_arguments = controller_node_options.arguments();
   const std::string ros_args_arg = "--ros-args";
   if (controller.info.parameters_file.has_value())
