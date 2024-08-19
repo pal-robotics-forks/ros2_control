@@ -2542,7 +2542,8 @@ rclcpp::NodeOptions ControllerManager::determine_controller_node_options(
   rclcpp::NodeOptions controller_node_options =
     rclcpp::NodeOptions()
       .allow_undeclared_parameters(true)
-      .automatically_declare_parameters_from_overrides(true);
+      .automatically_declare_parameters_from_overrides(true)
+      .use_global_arguments(false);
   std::vector<std::string> node_options_arguments = controller_node_options.arguments();
   const std::string ros_args_arg = "--ros-args";
   if (controller.info.parameters_file.has_value())
