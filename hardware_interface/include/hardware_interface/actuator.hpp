@@ -47,6 +47,12 @@ public:
 
   ~Actuator() = default;
 
+  Actuator(const Actuator & other) = delete;
+
+  Actuator & operator=(const Actuator & other) = delete;
+
+  Actuator& operator=(Actuator && other) = delete;
+
   HARDWARE_INTERFACE_PUBLIC
   const rclcpp_lifecycle::State & initialize(
     const HardwareInfo & actuator_info, rclcpp::Logger logger,

@@ -47,6 +47,12 @@ public:
 
   ~System() = default;
 
+  System(const System & other) = delete;
+
+  System & operator=(const System & other) = delete;
+
+  System & operator=(System && other) = delete;
+
   HARDWARE_INTERFACE_PUBLIC
   const rclcpp_lifecycle::State & initialize(
     const HardwareInfo & system_info, rclcpp::Logger logger,
