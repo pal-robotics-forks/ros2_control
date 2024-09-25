@@ -490,6 +490,8 @@ controller_interface::ControllerInterfaceBaseSharedPtr ControllerManager::load_c
   controller_spec.info.type = controller_type;
   controller_spec.next_update_cycle_time = std::make_shared<rclcpp::Time>(
     0, 0, this->get_node_clock_interface()->get_clock()->get_clock_type());
+  controller_spec.statistics =
+    std::make_shared<libstatistics_collector::moving_average_statistics::MovingAverageStatistics>();
 
   // We have to fetch the parameters_file at the time of loading the controller, because this way we
   // can load them at the creation of the LifeCycleNode and this helps in using the features such as
@@ -1683,6 +1685,8 @@ void ControllerManager::activate_controllers(
 
     try
     {
+      found_it->statistics->Reset();
+      found_it->statistics->AddMeasurement(1.0 / controller->get_update_rate());
       const auto new_state = controller->get_node()->activate();
       if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
       {
@@ -2294,6 +2298,7 @@ controller_interface::return_type ControllerManager::update(
       {
         const auto controller_actual_period =
           (time - *loaded_controller.next_update_cycle_time) + controller_period;
+        loaded_controller.statistics->AddMeasurement(controller_actual_period.seconds());
         auto controller_ret = controller_interface::return_type::OK;
         // Catch exceptions thrown by the controller update function
         try
