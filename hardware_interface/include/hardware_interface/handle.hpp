@@ -36,7 +36,7 @@ public:
 
   Handle(
     const std::string & prefix_name, const std::string & interface_name,
-    double * value_ptr = nullptr)
+    double * value_ptr)
   : prefix_name_(prefix_name),
     interface_name_(interface_name),
     handle_name_(prefix_name_ + "/" + interface_name_),
@@ -52,7 +52,7 @@ public:
     // As soon as multiple datatypes are used in HANDLE_DATATYPE
     // we need to initialize according the type passed in interface description
     value_ = std::numeric_limits<double>::quiet_NaN();
-    value_ptr_ = std::get_if<double>(&value_);
+    value_ptr_ = nullptr;
   }
 
   [[deprecated("Use InterfaceDescription for initializing the Interface")]]
