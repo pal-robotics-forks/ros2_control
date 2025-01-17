@@ -137,6 +137,12 @@ class TestSystem : public SystemInterface
     {
       return return_type::DEACTIVATE;
     }
+    // sleep for half of the time in the write function to simulate real hardware
+    if (get_hardware_info().is_async)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500 / get_hardware_info().rw_rate));
+    }
+
     return return_type::OK;
   }
 

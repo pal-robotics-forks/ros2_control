@@ -124,6 +124,13 @@ class TestActuator : public ActuatorInterface
     {
       return return_type::DEACTIVATE;
     }
+
+    // sleep for half of the time in the read function to simulate real hardware
+    if (get_hardware_info().is_async)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500 / get_hardware_info().rw_rate));
+    }
+
     // The next line is for the testing purposes. We need value to be changed to
     // be sure that the feedback from hardware to controllers in the chain is
     // working as it should. This makes value checks clearer and confirms there
