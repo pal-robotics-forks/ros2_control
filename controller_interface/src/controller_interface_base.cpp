@@ -82,10 +82,7 @@ return_type ControllerInterfaceBase::init(
   node_->register_on_cleanup(
     [this](const rclcpp_lifecycle::State & previous_state) -> CallbackReturn
     {
-      if (is_async() && async_handler_ && async_handler_->is_running())
-      {
-        async_handler_->stop_thread();
-      }
+      this->stop_async_handler_thread();
       return on_cleanup(previous_state);
     });
 
@@ -105,10 +102,18 @@ return_type ControllerInterfaceBase::init(
     std::bind(&ControllerInterfaceBase::on_deactivate, this, std::placeholders::_1));
 
   node_->register_on_shutdown(
-    std::bind(&ControllerInterfaceBase::on_shutdown, this, std::placeholders::_1));
+    [this](const rclcpp_lifecycle::State & previous_state) -> CallbackReturn
+    {
+      this->stop_async_handler_thread();
+      return on_shutdown(previous_state);
+    });
 
   node_->register_on_error(
-    std::bind(&ControllerInterfaceBase::on_error, this, std::placeholders::_1));
+    [this](const rclcpp_lifecycle::State & previous_state) -> CallbackReturn
+    {
+      this->stop_async_handler_thread();
+      return on_error(previous_state);
+    });
 
   return return_type::OK;
 }
@@ -271,6 +276,14 @@ void ControllerInterfaceBase::prepare_for_deactivation()
 {
   skip_async_triggers_.store(true);
   this->wait_for_trigger_update_to_finish();
+}
+
+void ControllerInterfaceBase::stop_async_handler_thread()
+{
+  if (is_async() && async_handler_ && async_handler_->is_running())
+  {
+    async_handler_->stop_thread();
+  }
 }
 
 }  // namespace controller_interface
