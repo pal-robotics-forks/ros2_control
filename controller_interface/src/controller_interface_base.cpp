@@ -92,6 +92,7 @@ return_type ControllerInterfaceBase::init(
   node_->register_on_activate(
     [this](const rclcpp_lifecycle::State & previous_state) -> CallbackReturn
     {
+      skip_async_triggers_.store(false);
       if (is_async() && async_handler_ && async_handler_->is_running())
       {
         // This is needed if it is disabled due to a thrown exception in the async callback thread
@@ -193,6 +194,13 @@ ControllerUpdateStatus ControllerInterfaceBase::trigger_update(
   trigger_stats_.total_triggers++;
   if (is_async())
   {
+    if (skip_async_triggers_.load())
+    {
+      // Skip further async triggers if the controller is being deactivated
+      status.successful = false;
+      status.result = return_type::OK;
+      return status;
+    }
     const rclcpp::Time last_trigger_time = async_handler_->get_current_callback_time();
     const auto result = async_handler_->trigger_async_callback(time, period);
     if (!result.first)
@@ -258,4 +266,11 @@ void ControllerInterfaceBase::wait_for_trigger_update_to_finish()
     async_handler_->wait_for_trigger_cycle_to_finish();
   }
 }
+
+void ControllerInterfaceBase::prepare_for_deactivation()
+{
+  skip_async_triggers_.store(true);
+  this->wait_for_trigger_update_to_finish();
+}
+
 }  // namespace controller_interface
