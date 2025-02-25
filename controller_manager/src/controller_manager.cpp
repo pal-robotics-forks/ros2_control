@@ -707,6 +707,11 @@ controller_interface::return_type ControllerManager::unload_controller(
     // cleaning-up controllers?
     try
     {
+      if (controller.c->is_chainable())
+      {
+        resource_manager_->remove_controller_reference_interfaces(controller_name);
+        resource_manager_->remove_controller_exported_state_interfaces(controller_name);
+      }
       const auto new_state = controller.c->get_node()->cleanup();
       if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
       {
@@ -788,10 +793,13 @@ controller_interface::return_type ControllerManager::configure_controller(
   {
     RCLCPP_DEBUG(
       get_logger(), "Controller '%s' is cleaned-up before configuring", controller_name.c_str());
-    // TODO(destogl): remove reference interface if chainable; i.e., add a separate method for
-    // cleaning-up controllers?
     try
     {
+      if (controller->is_chainable())
+      {
+        resource_manager_->remove_controller_reference_interfaces(controller_name);
+        resource_manager_->remove_controller_exported_state_interfaces(controller_name);
+      }
       new_state = controller->get_node()->cleanup();
       if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
       {
