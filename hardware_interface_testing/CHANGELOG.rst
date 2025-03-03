@@ -2,6 +2,17 @@
 Changelog for package hardware_interface_testing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add diagnostics of execution time and periodicity of the hardware components
+  Update the description of the parameters
+  Publish periodicity stats for controllers and hardware running at different frequencies
+  Update the summary of hardware components
+  Update release notes
+  Update controller_manager/src/controller_manager.cpp
+  Fix compilation
+* Contributors: Sai Kishor Kothakota
+
 4.27.0 (2025-03-01)
 -------------------
 * [Handle] Use `get_optional` instead of `get_value<double>` (`#2061 <https://github.com/ros-controls/ros2_control/issues/2061>`_)

@@ -2,6 +2,17 @@
 Changelog for package ros2_control_test_assets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add diagnostics of execution time and periodicity of the hardware components
+  Update the description of the parameters
+  Publish periodicity stats for controllers and hardware running at different frequencies
+  Update the summary of hardware components
+  Update release notes
+  Update controller_manager/src/controller_manager.cpp
+  Fix compilation
+* Contributors: Sai Kishor Kothakota
+
 4.27.0 (2025-03-01)
 -------------------
 * [CM] Fix the controller deactivation on the control cycles returning ERROR  (`#1756 <https://github.com/ros-controls/ros2_control/issues/1756>`_)

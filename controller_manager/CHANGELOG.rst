@@ -2,6 +2,21 @@
 Changelog for package controller_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Revert "Update path of GPL (#1994)"
+  This reverts commit f8c03cc7cca969a425e536c2cbfbf0bbc664d9fe.
+* Add diagnostics of execution time and periodicity of the hardware components
+  Update the description of the parameters
+  Publish periodicity stats for controllers and hardware running at different frequencies
+  Update the summary of hardware components
+  Update release notes
+  Update controller_manager/src/controller_manager.cpp
+  Fix compilation
+* Add Overrun detections and logic to control them
+* Improve diagnostics strings (#2078)
+* Contributors: Christoph Fröhlich, Sai Kishor Kothakota
+
 4.27.0 (2025-03-01)
 -------------------
 * [HW Components] Add fix for async hardware components improper rate (`#2076 <https://github.com/ros-controls/ros2_control/issues/2076>`_)
