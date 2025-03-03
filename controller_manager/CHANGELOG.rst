@@ -2,8 +2,8 @@
 Changelog for package controller_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.27.1 (2025-03-03)
+-------------------
 * Revert "Update path of GPL (#1994)"
   This reverts commit f8c03cc7cca969a425e536c2cbfbf0bbc664d9fe.
 * Add diagnostics of execution time and periodicity of the hardware components

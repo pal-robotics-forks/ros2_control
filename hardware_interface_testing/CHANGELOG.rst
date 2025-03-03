@@ -2,8 +2,8 @@
 Changelog for package hardware_interface_testing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.27.1 (2025-03-03)
+-------------------
 * Add diagnostics of execution time and periodicity of the hardware components
   Update the description of the parameters
   Publish periodicity stats for controllers and hardware running at different frequencies
