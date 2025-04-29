@@ -322,7 +322,7 @@ public:
     return result;
   }
 
-  void remove_all_hardware_interfaces_from_available_list(const std::string & hardware_name)
+  void remove_all_hardware_interfaces_from_available_list(const std::string & hardware_name, bool command_itf_only = false)
   {
     // remove all command interfaces from available list
     for (const auto & interface : hardware_info_map_[hardware_name].command_interfaces)
@@ -348,6 +348,8 @@ public:
           hardware_name.c_str(), interface.c_str());
       }
     }
+    if(!command_itf_only)
+    {
     // remove all state interfaces from available list
     for (const auto & interface : hardware_info_map_[hardware_name].state_interfaces)
     {
@@ -371,6 +373,7 @@ public:
           "This should not happen (hint: multiple cleanup calls).",
           hardware_name.c_str(), interface.c_str());
       }
+    }
     }
   }
 
@@ -2177,6 +2180,16 @@ HardwareReadWriteStatus ResourceManager::read(
         rclcpp_lifecycle::State inactive_state(
           lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE, lifecycle_state_names::INACTIVE);
         set_component_state(component_name, inactive_state);
+      }
+      else if (ret_val == return_type::DEACTIVATE_COMMAND_INTERFACES)
+      {
+        rclcpp_lifecycle::State inactive_state(
+          lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE, lifecycle_state_names::INACTIVE);
+        set_component_state(component_name, inactive_state);
+        // This is needed to stop all the controllers 
+        read_write_status.ok = false;
+        read_write_status.failed_hardware_names.push_back(component_name);
+        resource_storage_->remove_all_hardware_interfaces_from_available_list(component_name);
       }
       // If desired: automatic re-activation. We could add a flag for this...
       // else
