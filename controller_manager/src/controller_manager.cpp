@@ -149,15 +149,30 @@ void controller_chain_spec_cleanup(
   std::unordered_map<std::string, controller_manager::ControllerChainSpec> & ctrl_chain_spec,
   const std::string & controller)
 {
+  // Cleanup the invalid registry of the controller_chain_spec
+  std::for_each(
+    ctrl_chain_spec.begin(), ctrl_chain_spec.end(),
+    [](auto & ctrl) { ctrl.second.cleanup_registry(); });
+
   const auto following_controllers = ctrl_chain_spec[controller].following_controllers;
   const auto preceding_controllers = ctrl_chain_spec[controller].preceding_controllers;
   for (const auto & flwg_ctrl : following_controllers)
   {
-    ros2_control::remove_item(ctrl_chain_spec[flwg_ctrl].preceding_controllers, controller);
+    ctrl_chain_spec[flwg_ctrl.name].preceding_controllers.erase(
+      std::remove_if(
+        ctrl_chain_spec[flwg_ctrl.name].preceding_controllers.begin(),
+        ctrl_chain_spec[flwg_ctrl.name].preceding_controllers.end(),
+        [controller](const auto & ctrl) { return ctrl.name == controller; }),
+      ctrl_chain_spec[flwg_ctrl.name].preceding_controllers.end());
   }
   for (const auto & preced_ctrl : preceding_controllers)
   {
-    ros2_control::remove_item(ctrl_chain_spec[preced_ctrl].following_controllers, controller);
+    ctrl_chain_spec[preced_ctrl.name].following_controllers.erase(
+      std::remove_if(
+        ctrl_chain_spec[preced_ctrl.name].following_controllers.begin(),
+        ctrl_chain_spec[preced_ctrl.name].following_controllers.end(),
+        [controller](const auto & ctrl) { return ctrl.name == controller; }),
+      ctrl_chain_spec[preced_ctrl.name].following_controllers.end());
   }
   ctrl_chain_spec.erase(controller);
 }
@@ -1052,6 +1067,9 @@ controller_interface::return_type ControllerManager::configure_controller(
       get_logger(), "Controller '%s' is cleaned-up before configuring", controller_name.c_str());
     if (cleanup_controller(*found_it) != controller_interface::return_type::OK)
     {
+      RCLCPP_ERROR(
+        get_logger(), "Failed to clean-up the controller '%s' before configuring",
+        controller_name.c_str());
       return controller_interface::return_type::ERROR;
     }
   }
@@ -1179,9 +1197,11 @@ controller_interface::return_type ControllerManager::configure_controller(
     if (is_interface_a_chained_interface(cmd_itf, controllers, ctrl_it))
     {
       ros2_control::add_item(
-        controller_chain_spec_[controller_name].following_controllers, ctrl_it->info.name);
+        controller_chain_spec_[controller_name].following_controllers,
+        ControllerChainPeerData(ctrl_it->info.name, ctrl_it->c));
+      ControllerChainPeerData controller_peer(controller_name, controller);
       ros2_control::add_item(
-        controller_chain_spec_[ctrl_it->info.name].preceding_controllers, controller_name);
+        controller_chain_spec_[ctrl_it->info.name].preceding_controllers, controller_peer);
       ros2_control::add_item(
         controller_chained_reference_interfaces_cache_[ctrl_it->info.name], controller_name);
     }
@@ -1193,9 +1213,11 @@ controller_interface::return_type ControllerManager::configure_controller(
     if (is_interface_a_chained_interface(state_itf, controllers, ctrl_it))
     {
       ros2_control::add_item(
-        controller_chain_spec_[controller_name].preceding_controllers, ctrl_it->info.name);
+        controller_chain_spec_[controller_name].preceding_controllers,
+        ControllerChainPeerData(ctrl_it->info.name, ctrl_it->c));
+      ControllerChainPeerData controller_peer(controller_name, controller);
       ros2_control::add_item(
-        controller_chain_spec_[ctrl_it->info.name].following_controllers, controller_name);
+        controller_chain_spec_[ctrl_it->info.name].following_controllers, controller_peer);
       ros2_control::add_item(
         controller_chained_state_interfaces_cache_[ctrl_it->info.name], controller_name);
     }
@@ -3908,7 +3930,7 @@ void ControllerManager::update_list_with_controller_chain(
     for (const auto & ctrl : controller_chain_spec_[ctrl_name].following_controllers)
     {
       auto it =
-        std::find(ordered_controllers_names_.begin(), ordered_controllers_names_.end(), ctrl);
+        std::find(ordered_controllers_names_.begin(), ordered_controllers_names_.end(), ctrl.name);
       if (it != ordered_controllers_names_.end())
       {
         if (
@@ -3922,7 +3944,7 @@ void ControllerManager::update_list_with_controller_chain(
     for (const auto & ctrl : controller_chain_spec_[ctrl_name].preceding_controllers)
     {
       auto it =
-        std::find(ordered_controllers_names_.begin(), ordered_controllers_names_.end(), ctrl);
+        std::find(ordered_controllers_names_.begin(), ordered_controllers_names_.end(), ctrl.name);
       if (it != ordered_controllers_names_.end())
       {
         if (
@@ -3947,23 +3969,23 @@ void ControllerManager::update_list_with_controller_chain(
       get_logger(), !controller_chain_spec_[ctrl_name].following_controllers.empty(),
       "\t[%s] Following controllers : %ld", ctrl_name.c_str(),
       controller_chain_spec_[ctrl_name].following_controllers.size());
-    for (const std::string & flwg_ctrl : controller_chain_spec_[ctrl_name].following_controllers)
+    for (const auto & flwg_ctrl : controller_chain_spec_[ctrl_name].following_controllers)
     {
       new_ctrl_it =
         std::find(ordered_controllers_names_.begin(), ordered_controllers_names_.end(), ctrl_name);
-      RCLCPP_DEBUG(get_logger(), "\t\t[%s] : %s", ctrl_name.c_str(), flwg_ctrl.c_str());
-      update_list_with_controller_chain(flwg_ctrl, new_ctrl_it, true);
+      RCLCPP_DEBUG(get_logger(), "\t\t[%s] : %s", ctrl_name.c_str(), flwg_ctrl.name.c_str());
+      update_list_with_controller_chain(flwg_ctrl.name, new_ctrl_it, true);
     }
     RCLCPP_DEBUG_EXPRESSION(
       get_logger(), !controller_chain_spec_[ctrl_name].preceding_controllers.empty(),
       "\t[%s] Preceding controllers : %ld", ctrl_name.c_str(),
       controller_chain_spec_[ctrl_name].preceding_controllers.size());
-    for (const std::string & preced_ctrl : controller_chain_spec_[ctrl_name].preceding_controllers)
+    for (const auto & preced_ctrl : controller_chain_spec_[ctrl_name].preceding_controllers)
     {
       new_ctrl_it =
         std::find(ordered_controllers_names_.begin(), ordered_controllers_names_.end(), ctrl_name);
-      RCLCPP_DEBUG(get_logger(), "\t\t[%s]: %s", ctrl_name.c_str(), preced_ctrl.c_str());
-      update_list_with_controller_chain(preced_ctrl, new_ctrl_it, false);
+      RCLCPP_DEBUG(get_logger(), "\t\t[%s]: %s", ctrl_name.c_str(), preced_ctrl.name.c_str());
+      update_list_with_controller_chain(preced_ctrl.name, new_ctrl_it, false);
     }
   }
 }

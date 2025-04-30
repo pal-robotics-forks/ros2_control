@@ -53,10 +53,43 @@ struct ControllerSpec
   std::shared_ptr<MovingAverageStatistics> periodicity_statistics;
 };
 
+struct ControllerChainPeerData
+{
+  ControllerChainPeerData() = default;
+
+  ControllerChainPeerData(
+    const std::string & ctrl_name,
+    const std::shared_ptr<controller_interface::ControllerInterfaceBase> & ctrl)
+  : name(ctrl_name), controller(ctrl)
+  {
+  }
+
+  bool operator==(const ControllerChainPeerData & other) const { return name == other.name; }
+
+  bool is_valid() const { return !name.empty() && !controller.expired(); }
+
+  std::string name = "";
+  std::weak_ptr<controller_interface::ControllerInterfaceBase> controller;
+};
+
 struct ControllerChainSpec
 {
-  std::vector<std::string> following_controllers;
-  std::vector<std::string> preceding_controllers;
+  std::vector<ControllerChainPeerData> following_controllers;
+  std::vector<ControllerChainPeerData> preceding_controllers;
+
+  void cleanup_registry()
+  {
+    following_controllers.erase(
+      std::remove_if(
+        following_controllers.begin(), following_controllers.end(),
+        [](const ControllerChainPeerData & info) { return !info.is_valid(); }),
+      following_controllers.end());
+    preceding_controllers.erase(
+      std::remove_if(
+        preceding_controllers.begin(), preceding_controllers.end(),
+        [](const ControllerChainPeerData & info) { return !info.is_valid(); }),
+      preceding_controllers.end());
+  }
 };
 }  // namespace controller_manager
 #endif  // CONTROLLER_MANAGER__CONTROLLER_SPEC_HPP_
