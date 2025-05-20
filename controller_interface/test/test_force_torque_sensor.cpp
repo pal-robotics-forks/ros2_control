@@ -48,20 +48,26 @@ TEST_F(ForceTorqueSensorTest, validate_all_with_default_names)
   std::vector<std::string> interface_names = force_torque_sensor_->get_state_interface_names();
 
   // assign values to force
-  hardware_interface::StateInterface force_x{
-    sensor_name_, fts_interface_names_[0], &force_values_[0]};
-  hardware_interface::StateInterface force_y{
-    sensor_name_, fts_interface_names_[1], &force_values_[1]};
-  hardware_interface::StateInterface force_z{
-    sensor_name_, fts_interface_names_[2], &force_values_[2]};
+  hardware_interface::StateInterface::ConstSharedPtr force_x =
+    std::make_shared<const hardware_interface::StateInterface>(
+      sensor_name_, fts_interface_names_[0], &force_values_[0]);
+  hardware_interface::StateInterface::ConstSharedPtr force_y =
+    std::make_shared<const hardware_interface::StateInterface>(
+      sensor_name_, fts_interface_names_[1], &force_values_[1]);
+  hardware_interface::StateInterface::ConstSharedPtr force_z =
+    std::make_shared<const hardware_interface::StateInterface>(
+      sensor_name_, fts_interface_names_[2], &force_values_[2]);
 
   // assign values to torque
-  hardware_interface::StateInterface torque_x{
-    sensor_name_, fts_interface_names_[3], &torque_values_[0]};
-  hardware_interface::StateInterface torque_y{
-    sensor_name_, fts_interface_names_[4], &torque_values_[1]};
-  hardware_interface::StateInterface torque_z{
-    sensor_name_, fts_interface_names_[5], &torque_values_[2]};
+  hardware_interface::StateInterface::ConstSharedPtr torque_x =
+    std::make_shared<const hardware_interface::StateInterface>(
+      sensor_name_, fts_interface_names_[3], &torque_values_[0]);
+  hardware_interface::StateInterface::ConstSharedPtr torque_y =
+    std::make_shared<const hardware_interface::StateInterface>(
+      sensor_name_, fts_interface_names_[4], &torque_values_[1]);
+  hardware_interface::StateInterface::ConstSharedPtr torque_z =
+    std::make_shared<const hardware_interface::StateInterface>(
+      sensor_name_, fts_interface_names_[5], &torque_values_[2]);
 
   // create local state interface vector
   std::vector<hardware_interface::LoanedStateInterface> temp_state_interfaces;

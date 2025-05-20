@@ -46,16 +46,21 @@ struct GPSSensorTest : public testing::Test
     gps_sensor_name};
   std::vector<std::string> full_interface_names;
 
-  hardware_interface::StateInterface gps_state{
-    gps_sensor_name, gps_interface_names.at(0), &gps_states.at(0)};
-  hardware_interface::StateInterface gps_service{
-    gps_sensor_name, gps_interface_names.at(1), &gps_states.at(1)};
-  hardware_interface::StateInterface latitude{
-    gps_sensor_name, gps_interface_names.at(2), &gps_states.at(2)};
-  hardware_interface::StateInterface longitude{
-    gps_sensor_name, gps_interface_names.at(3), &gps_states.at(3)};
-  hardware_interface::StateInterface altitude{
-    gps_sensor_name, gps_interface_names.at(4), &gps_states.at(4)};
+  hardware_interface::StateInterface::ConstSharedPtr gps_state =
+    std::make_shared<const hardware_interface::StateInterface>(
+      gps_sensor_name, gps_interface_names.at(0), &gps_states.at(0));
+  hardware_interface::StateInterface::ConstSharedPtr gps_service =
+    std::make_shared<const hardware_interface::StateInterface>(
+      gps_sensor_name, gps_interface_names.at(1), &gps_states.at(1));
+  hardware_interface::StateInterface::ConstSharedPtr latitude =
+    std::make_shared<const hardware_interface::StateInterface>(
+      gps_sensor_name, gps_interface_names.at(2), &gps_states.at(2));
+  hardware_interface::StateInterface::ConstSharedPtr longitude =
+    std::make_shared<const hardware_interface::StateInterface>(
+      gps_sensor_name, gps_interface_names.at(3), &gps_states.at(3));
+  hardware_interface::StateInterface::ConstSharedPtr altitude =
+    std::make_shared<const hardware_interface::StateInterface>(
+      gps_sensor_name, gps_interface_names.at(4), &gps_states.at(4));
   std::vector<hardware_interface::LoanedStateInterface> state_interface;
 };
 

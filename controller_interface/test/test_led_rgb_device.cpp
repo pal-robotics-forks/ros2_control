@@ -47,9 +47,15 @@ TEST_F(LedDeviceTest, validate_all)
   std::vector<std::string> interface_names = led_device_->get_command_interface_names();
 
   // Assign values to position
-  hardware_interface::CommandInterface led_r{device_name_, interface_names_[0], &led_values_[0]};
-  hardware_interface::CommandInterface led_g{device_name_, interface_names_[1], &led_values_[1]};
-  hardware_interface::CommandInterface led_b{device_name_, interface_names_[2], &led_values_[2]};
+  hardware_interface::CommandInterface::SharedPtr led_r =
+    std::make_shared<hardware_interface::CommandInterface>(
+      device_name_, interface_names_[0], &led_values_[0]);
+  hardware_interface::CommandInterface::SharedPtr led_g =
+    std::make_shared<hardware_interface::CommandInterface>(
+      device_name_, interface_names_[1], &led_values_[1]);
+  hardware_interface::CommandInterface::SharedPtr led_b =
+    std::make_shared<hardware_interface::CommandInterface>(
+      device_name_, interface_names_[2], &led_values_[2]);
 
   // Create command interface vector in jumbled order
   std::vector<hardware_interface::LoanedCommandInterface> temp_command_interfaces;

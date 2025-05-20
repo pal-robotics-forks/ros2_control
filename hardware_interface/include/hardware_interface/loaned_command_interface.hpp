@@ -31,20 +31,8 @@ class LoanedCommandInterface
 public:
   using Deleter = std::function<void(void)>;
 
-  [[deprecated("Replaced by the new version using shared_ptr")]] explicit LoanedCommandInterface(
-    CommandInterface & command_interface)
-  : LoanedCommandInterface(command_interface, nullptr)
-  {
-  }
-
-  [[deprecated("Replaced by the new version using shared_ptr")]] LoanedCommandInterface(
-    CommandInterface & command_interface, Deleter && deleter)
-  : command_interface_(command_interface), deleter_(std::forward<Deleter>(deleter))
-  {
-  }
-
   LoanedCommandInterface(CommandInterface::SharedPtr command_interface, Deleter && deleter)
-  : command_interface_(*command_interface), deleter_(std::forward<Deleter>(deleter))
+  : command_interface_(command_interface), deleter_(std::forward<Deleter>(deleter))
   {
   }
 
@@ -54,7 +42,7 @@ public:
 
   virtual ~LoanedCommandInterface()
   {
-    auto logger = rclcpp::get_logger(command_interface_.get_name());
+    auto logger = rclcpp::get_logger(command_interface_->get_name());
     RCLCPP_WARN_EXPRESSION(
       rclcpp::get_logger(get_name()),
       (get_value_statistics_.failed_counter > 0 || get_value_statistics_.timeout_counter > 0),
@@ -81,9 +69,12 @@ public:
     }
   }
 
-  const std::string & get_name() const { return command_interface_.get_name(); }
+  const std::string & get_name() const { return command_interface_->get_name(); }
 
-  const std::string & get_interface_name() const { return command_interface_.get_interface_name(); }
+  const std::string & get_interface_name() const
+  {
+    return command_interface_->get_interface_name();
+  }
 
   [[deprecated(
     "Replaced by get_name method, which is semantically more correct")]] const std::string
@@ -114,7 +105,7 @@ public:
   {
     unsigned int nr_tries = 0;
     ++set_value_statistics_.total_counter;
-    while (!command_interface_.set_limited_value(value))
+    while (!command_interface_->set_limited_value(value))
     {
       ++set_value_statistics_.failed_counter;
       ++nr_tries;
@@ -165,7 +156,7 @@ public:
     do
     {
       ++get_value_statistics_.total_counter;
-      const std::optional<T> data = command_interface_.get_optional<T>();
+      const std::optional<T> data = command_interface_->get_optional<T>();
       if (data.has_value())
       {
         return data;
@@ -210,7 +201,7 @@ public:
   }
 
 protected:
-  CommandInterface & command_interface_;
+  CommandInterface::SharedPtr command_interface_;
   Deleter deleter_;
 
 private:

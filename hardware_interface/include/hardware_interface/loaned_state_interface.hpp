@@ -30,25 +30,13 @@ class LoanedStateInterface
 public:
   using Deleter = std::function<void(void)>;
 
-  [[deprecated("Replaced by the new version using shared_ptr")]] explicit LoanedStateInterface(
-    const StateInterface & state_interface)
-  : LoanedStateInterface(state_interface, nullptr)
-  {
-  }
-
-  [[deprecated("Replaced by the new version using shared_ptr")]] LoanedStateInterface(
-    const StateInterface & state_interface, Deleter && deleter)
-  : state_interface_(state_interface), deleter_(std::forward<Deleter>(deleter))
-  {
-  }
-
   explicit LoanedStateInterface(StateInterface::ConstSharedPtr state_interface)
   : LoanedStateInterface(state_interface, nullptr)
   {
   }
 
   LoanedStateInterface(StateInterface::ConstSharedPtr state_interface, Deleter && deleter)
-  : state_interface_(*state_interface), deleter_(std::forward<Deleter>(deleter))
+  : state_interface_(state_interface), deleter_(std::forward<Deleter>(deleter))
   {
   }
 
@@ -58,13 +46,13 @@ public:
 
   virtual ~LoanedStateInterface()
   {
-    auto logger = rclcpp::get_logger(state_interface_.get_name());
+    auto logger = rclcpp::get_logger(state_interface_->get_name());
     RCLCPP_WARN_EXPRESSION(
       logger,
       (get_value_statistics_.failed_counter > 0 || get_value_statistics_.timeout_counter > 0),
       "LoanedStateInterface %s has %u (%.4f %%) timeouts and %u (%.4f %%) missed calls out of %u "
       "get_value calls",
-      state_interface_.get_name().c_str(), get_value_statistics_.timeout_counter,
+      state_interface_->get_name().c_str(), get_value_statistics_.timeout_counter,
       (get_value_statistics_.timeout_counter * 100.0) / get_value_statistics_.total_counter,
       get_value_statistics_.failed_counter,
       (get_value_statistics_.failed_counter * 10.0) / get_value_statistics_.total_counter,
@@ -75,9 +63,9 @@ public:
     }
   }
 
-  const std::string & get_name() const { return state_interface_.get_name(); }
+  const std::string & get_name() const { return state_interface_->get_name(); }
 
-  const std::string & get_interface_name() const { return state_interface_.get_interface_name(); }
+  const std::string & get_interface_name() const { return state_interface_->get_interface_name(); }
 
   [[deprecated(
     "Replaced by get_name method, which is semantically more correct")]] const std::string
@@ -125,7 +113,7 @@ public:
     do
     {
       ++get_value_statistics_.total_counter;
-      const std::optional<T> data = state_interface_.get_optional<T>();
+      const std::optional<T> data = state_interface_->get_optional<T>();
       if (data.has_value())
       {
         return data;
@@ -170,7 +158,7 @@ public:
   }
 
 protected:
-  const StateInterface & state_interface_;
+  StateInterface::ConstSharedPtr state_interface_ = nullptr;
   Deleter deleter_;
 
 private:
