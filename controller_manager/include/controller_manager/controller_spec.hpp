@@ -50,7 +50,7 @@ struct ControllerPeerInfo
   std::unordered_set<std::string> reference_interfaces = {};
   std::vector<std::unordered_set<std::string>> mutually_exclusive_predecessor_groups = {};
 
-  void build_mutually_exclusive_groups()
+  void build_mutually_exclusive_predecessor_groups()
   {
     // Build mutually exclusive groups of predecessor controllers, that could utilize all the
     // reference interfaces of the current controller. This is used to determine which predecessor
@@ -419,7 +419,7 @@ public:
     {
       return {};
     }
-    controller_graph_[controller_name].build_mutually_exclusive_groups();
+    controller_graph_[controller_name].build_mutually_exclusive_predecessor_groups();
     controller_graph_[controller_name].get_controllers_to_activate(controllers_to_activate);
     return controllers_to_activate;
   }
@@ -435,7 +435,7 @@ public:
     {
       return {};
     }
-    controller_graph_[controller_name].build_mutually_exclusive_groups();
+    controller_graph_[controller_name].build_mutually_exclusive_predecessor_groups();
     controller_graph_[controller_name].get_controllers_to_deactivate(controllers_to_deactivate);
     return controllers_to_deactivate;
   }
