@@ -338,6 +338,48 @@ controller_interface::return_type evaluate_switch_result(
   return switch_result;
 }
 
+void manage_executor_nodes(
+  rclcpp::Logger logger, const std::shared_ptr<rclcpp::Executor> & executor,
+  const std::vector<controller_manager::ControllerSpec> & controllers_spec)
+{
+  for (auto & controller : controllers_spec)
+  {
+    if (is_controller_active(controller.c))
+    {
+      if (!controller.c->get_node()
+             ->get_node_base_interface()
+             ->get_associated_with_executor_atomic()
+             .load())
+      {
+        RCLCPP_DEBUG(
+          logger,
+          "Controller '%s' node is not associated with the executor, "
+          "associating it now",
+          controller.info.name.c_str());
+        executor->add_node(controller.c->get_node()->get_node_base_interface());
+      }
+      else
+      {
+        RCLCPP_DEBUG(
+          logger, "Controller '%s' node is already associated with the executor",
+          controller.info.name.c_str());
+      }
+    }
+    else
+    {
+      if (controller.c->get_node()
+            ->get_node_base_interface()
+            ->get_associated_with_executor_atomic()
+            .load())
+      {
+        RCLCPP_DEBUG(
+          logger, "Removing controller '%s' node from the executor", controller.info.name.c_str());
+        executor->remove_node(controller.c->get_node()->get_node_base_interface());
+      }
+    }
+  }
+}
+
 void get_controller_list_command_interfaces(
   const std::vector<std::string> & controllers_list,
   const std::vector<controller_manager::ControllerSpec> & controllers_spec,
@@ -1863,6 +1905,8 @@ controller_interface::return_type ControllerManager::switch_controller_cb(
     resource_manager_, activate_request_, deactivate_request_, strictness, get_logger(), to,
     message);
 
+  manage_executor_nodes(get_logger(), executor_, to);
+
   // switch lists
   rt_controllers_wrapper_.switch_updated_list(guard);
   // clear unused list
@@ -1937,7 +1981,6 @@ controller_interface::ControllerInterfaceBaseSharedPtr ControllerManager::add_co
   controller_chained_state_interfaces_cache_[controller.info.name] = {};
   controller_chained_reference_interfaces_cache_[controller.info.name] = {};
 
-  executor_->add_node(controller.c->get_node()->get_node_base_interface());
   to.emplace_back(controller);
 
   // Destroys the old controllers list when the realtime thread is finished with it.
