@@ -25,6 +25,7 @@ set(srv_files
   srv/ReloadControllerLibraries.srv
   srv/SetHardwareComponentState.srv
   srv/SwitchController.srv
+  srv/SwitchProfiles.srv
   srv/UnloadController.srv
 )
 
