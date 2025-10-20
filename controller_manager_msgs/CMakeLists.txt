@@ -14,6 +14,9 @@ set(msg_files
   msg/HardwareInterface.msg
   msg/NamedLifecycleState.msg
   msg/ControllerManagerActivity.msg
+  msg/Profile.msg
+  msg/Profiles.msg
+  msg/StringArray.msg
 )
 set(srv_files
   srv/ConfigureController.srv
