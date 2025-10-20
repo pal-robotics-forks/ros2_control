@@ -30,7 +30,7 @@ from controller_manager import (
     set_controller_parameters_from_param_files,
     bcolors,
 )
-from controller_manager_msgs.msg import ControllerManagerActivity
+from controller_manager_msgs.msg import ControllerManagerActivity, StringArray
 from controller_manager_msgs.srv import SwitchController, SwitchProfiles
 from controller_manager.controller_manager_services import ServiceNotFoundError
 
@@ -80,22 +80,43 @@ class ControllerManagerProfileService(Node):
     def __init__(self):
         super().__init__('profile_manager')
         self.callback_group = rclpy.callback_groups.ReentrantCallbackGroup()
+        self.qos_profile = rclpy.qos.QoSProfile(
+            depth=1,
+            reliability=rclpy.qos.QoSReliabilityPolicy.RELIABLE,
+            durability=rclpy.qos.QoSDurabilityPolicy.TRANSIENT_LOCAL)
         self.start_srv = self.create_service(
             SwitchProfiles, '~/switch', self.switch_profile_callback, callback_group=self.callback_group)
+        self.active_profiles_pub = self.create_publisher(
+            StringArray, '~/active_profiles', qos_profile=self.qos_profile, callback_group=self.callback_group)
+
+        # Load profiles from config file
+        self.load_profiles()
+
+        # Subscribe to controller manager activity and create client to switch controllers
         self.cm_activity = self.create_subscription(
             ControllerManagerActivity,
             '/controller_manager/activity',
             self.activity_callback,
-            rclpy.qos.DurabilityPolicy(1),
+            self.qos_profile,
             callback_group=self.callback_group)
         self.cm_switch_client = self.create_client(
             SwitchController, '/controller_manager/switch_controller', callback_group=self.callback_group)
-        self.load_profiles()
 
     def activity_callback(self, msg):
         print("Current active controllers:")
+        active_controllers = []
         for controllers in msg.controllers:
             print(f" - {controllers.name}: {controllers.state.label}")
+            if controllers.state.label == "active":
+                active_controllers.append(controllers.name)
+        profile_names = []
+        for profile_name, controllers in self.profiles.items():
+            if all(controller in active_controllers for controller in controllers):
+                profile_names.append(profile_name)
+
+        profile_msg = StringArray()
+        profile_msg.data = profile_names
+        self.active_profiles_pub.publish(profile_msg)
 
     def load_profiles(self):
         self.profiles = {}
@@ -103,6 +124,7 @@ class ControllerManagerProfileService(Node):
         self.profiles["base_controller"] = ["pid_controller_right_wheel_joint",
                                             "pid_controller_left_wheel_joint",
                                             "diffbot_base_controller"]
+        print("Loaded profiles:")
 
     def switch_profile_callback(self, request, response):
         cm_request = SwitchController.Request()
