@@ -79,15 +79,17 @@ class ControllerManagerProfileService(Node):
 
     def __init__(self):
         super().__init__('profile_manager')
+        self.callback_group = rclpy.callback_groups.ReentrantCallbackGroup()
         self.start_srv = self.create_service(
-            SwitchProfiles, '~/switch', self.switch_profile_callback)
+            SwitchProfiles, '~/switch', self.switch_profile_callback, callback_group=self.callback_group)
         self.cm_activity = self.create_subscription(
             ControllerManagerActivity,
             '/controller_manager/activity',
             self.activity_callback,
-            rclpy.qos.DurabilityPolicy(1))
+            rclpy.qos.DurabilityPolicy(1),
+            callback_group=self.callback_group)
         self.cm_switch_client = self.create_client(
-            SwitchController, '/controller_manager/switch_controller')
+            SwitchController, '/controller_manager/switch_controller', callback_group=self.callback_group)
         self.load_profiles()
 
     def activity_callback(self, msg):
@@ -98,7 +100,9 @@ class ControllerManagerProfileService(Node):
     def load_profiles(self):
         self.profiles = {}
         self.profiles["broadcasters"] = ["joint_state_broadcaster"]
-        self.profiles["chain1"] = ["chain1_position_controller"]
+        self.profiles["base_controller"] = ["pid_controller_right_wheel_joint",
+                                            "pid_controller_left_wheel_joint",
+                                            "diffbot_base_controller"]
 
     def switch_profile_callback(self, request, response):
         cm_request = SwitchController.Request()
@@ -113,7 +117,12 @@ class ControllerManagerProfileService(Node):
         rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
         response.ok = future.result().ok
         response.message = future.result().message
-        print(future.result())
+        if response.ok:
+            self.get_logger().info(
+                f"Successfully switched profile. Activated: {cm_request.activate_controllers}, Deactivated: {cm_request.deactivate_controllers}")
+        else:
+            self.get_logger().error(
+                f"Failed to switch profile. Message: {response.message}")
         return response
 
 
