@@ -34,7 +34,8 @@ from controller_manager_msgs.msg import ControllerManagerActivity, StringArray
 from controller_manager_msgs.srv import SwitchController, SwitchProfiles
 from controller_manager.controller_manager_services import ServiceNotFoundError
 
-from filelock import Timeout, FileLock
+from ament_index_python import get_resources
+
 import rclpy
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
@@ -119,12 +120,19 @@ class ControllerManagerProfileService(Node):
         self.active_profiles_pub.publish(profile_msg)
 
     def load_profiles(self):
+        resources = get_resources('ros2_control_profile')
+        if not resources:
+            self.get_logger().error(
+                "No ros2_control_profile resources found.")
+        else:
+            for resource_name, resource_path in resources.items():
+                self.get_logger().info(
+                    f"Loading ros2_control_profile resource '{resource_name}' from '{resource_path}'")
         self.profiles = {}
         self.profiles["broadcasters"] = ["joint_state_broadcaster"]
         self.profiles["base_controller"] = ["pid_controller_right_wheel_joint",
                                             "pid_controller_left_wheel_joint",
                                             "diffbot_base_controller"]
-        print("Loaded profiles:")
 
     def switch_profile_callback(self, request, response):
         cm_request = SwitchController.Request()
