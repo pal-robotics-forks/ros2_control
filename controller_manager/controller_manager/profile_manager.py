@@ -53,14 +53,12 @@ def combine_name_and_namespace(name_and_namespace):
 def find_node_and_namespace(node, full_node_name):
     node_names_and_namespaces = node.get_node_names_and_namespaces()
     return first_match(
-        node_names_and_namespaces, lambda n: combine_name_and_namespace(
-            n) == full_node_name
+        node_names_and_namespaces, lambda n: combine_name_and_namespace(n) == full_node_name
     )
 
 
 def has_service_names(node, node_name, node_namespace, service_names):
-    client_names_and_types = node.get_service_names_and_types_by_node(
-        node_name, node_namespace)
+    client_names_and_types = node.get_service_names_and_types_by_node(node_name, node_namespace)
     if not client_names_and_types:
         return False
     client_names, _ = zip(*client_names_and_types)
@@ -76,19 +74,83 @@ def is_controller_loaded(
     return any(c.name == controller_name for c in controllers)
 
 
+"""
+Profile manager for ros2_control controller manager.
+
+Profiles are a way to group controllers that should be activated/deactivated together and have a semantic meaning together.
+    For example, a "base_controller" profile could include all controllers needed to operate a mobile base
+    (e.g., wheel PID controllers and a diff drive controller)
+    while a "broadcasters" profile could include all the necessary state broadcasters.
+
+Profile manager listens to the controller manager activity topic to monitor active controllers and provides a service to
+    switch between profiles by activating/deactivating the corresponding controllers.
+
+Each package can define its own profiles by providing a ros2_control_profile resource using ament_index_register_resource in their CMakeLists.txt.
+    Apart from that, the users can define an overriding profile configurations in the $ROS_HOME/ros2_control_profiles/ directory.
+
+The profile manager can be configured to understand the limitations of the system, like mutually exclusive interfaces in joints
+    For instance, joint 1 and 2 can only exclusively have position or velocity or torque interfaces active at the same time.
+    Maybe, joint 3 can have position and velocity interfaces active at the same time, but not torque.
+    These limitations can be defined in a YAML file (non ROS2 parameter file) and passed as a parameter to the profile manager node.
+
+This YAML could like this:
+
+```yaml
+    control_modes:
+    # default for all joints
+    default:
+        allowed_mode_sets:
+        - [position]
+        - [velocity]
+        - [torque]
+        - [position, velocity]   # globally allowed combo
+
+    # exceptions
+    exceptions:
+        joint3:
+        allowed_mode_sets:
+            - [position]           # only position
+
+        joint5:
+        allowed_mode_sets:
+            - [position, velocity] # must have both
+
+        "arm_*":
+        allowed_mode_sets:
+            - [position]
+            - [position, velocity] # supports both single and combined
+
+```
+
+Based on the above configuration, the profile manager would ensure that when switching profiles
+    the controllers being activated do not violate the defined control mode limitations, and when forced to do so,
+    it would deactivate the necessary controllers to satisfy the constraints automatically.
+
+"""
+
+
 class ControllerManagerProfileService(Node):
 
     def __init__(self):
-        super().__init__('profile_manager')
+        super().__init__("profile_manager")
         self.callback_group = rclpy.callback_groups.ReentrantCallbackGroup()
         self.qos_profile = rclpy.qos.QoSProfile(
             depth=1,
             reliability=rclpy.qos.QoSReliabilityPolicy.RELIABLE,
-            durability=rclpy.qos.QoSDurabilityPolicy.TRANSIENT_LOCAL)
+            durability=rclpy.qos.QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        )
         self.start_srv = self.create_service(
-            SwitchProfiles, '~/switch', self.switch_profile_callback, callback_group=self.callback_group)
+            SwitchProfiles,
+            "~/switch",
+            self.switch_profile_callback,
+            callback_group=self.callback_group,
+        )
         self.active_profiles_pub = self.create_publisher(
-            StringArray, '~/active_profiles', qos_profile=self.qos_profile, callback_group=self.callback_group)
+            StringArray,
+            "~/active_profiles",
+            qos_profile=self.qos_profile,
+            callback_group=self.callback_group,
+        )
 
         # Load profiles from config file
         self.load_profiles()
@@ -96,12 +158,16 @@ class ControllerManagerProfileService(Node):
         # Subscribe to controller manager activity and create client to switch controllers
         self.cm_activity = self.create_subscription(
             ControllerManagerActivity,
-            '/controller_manager/activity',
+            "/controller_manager/activity",
             self.activity_callback,
             self.qos_profile,
-            callback_group=self.callback_group)
+            callback_group=self.callback_group,
+        )
         self.cm_switch_client = self.create_client(
-            SwitchController, '/controller_manager/switch_controller', callback_group=self.callback_group)
+            SwitchController,
+            "/controller_manager/switch_controller",
+            callback_group=self.callback_group,
+        )
 
     def activity_callback(self, msg):
         print("Current active controllers:")
@@ -120,26 +186,26 @@ class ControllerManagerProfileService(Node):
         self.active_profiles_pub.publish(profile_msg)
 
     def load_profiles(self):
-        resources = get_resources('ros2_control_profile')
+        resources = get_resources("ros2_control_profile")
         if not resources:
-            self.get_logger().error(
-                "No ros2_control_profile resources found.")
+            self.get_logger().error("No ros2_control_profile resources found.")
         else:
             for resource_name, resource_path in resources.items():
                 self.get_logger().info(
-                    f"Loading ros2_control_profile resource '{resource_name}' from '{resource_path}'")
+                    f"Loading ros2_control_profile resource '{resource_name}' from '{resource_path}'"
+                )
         self.profiles = {}
         self.profiles["broadcasters"] = ["joint_state_broadcaster"]
-        self.profiles["base_controller"] = ["pid_controller_right_wheel_joint",
-                                            "pid_controller_left_wheel_joint",
-                                            "diffbot_base_controller"]
+        self.profiles["base_controller"] = [
+            "pid_controller_right_wheel_joint",
+            "pid_controller_left_wheel_joint",
+            "diffbot_base_controller",
+        ]
 
     def switch_profile_callback(self, request, response):
         cm_request = SwitchController.Request()
-        cm_request.activate_controllers = self.profiles[request.start[0]] if request.start else [
-        ]
-        cm_request.deactivate_controllers = self.profiles[request.stop[0]] if request.stop else [
-        ]
+        cm_request.activate_controllers = self.profiles[request.start[0]] if request.start else []
+        cm_request.deactivate_controllers = self.profiles[request.stop[0]] if request.stop else []
         cm_request.strictness = SwitchController.Request.STRICT
         cm_request.activate_asap = False
         cm_request.timeout = rclpy.duration.Duration(seconds=1.0).to_msg()
@@ -149,10 +215,10 @@ class ControllerManagerProfileService(Node):
         response.message = future.result().message
         if response.ok:
             self.get_logger().info(
-                f"Successfully switched profile. Activated: {cm_request.activate_controllers}, Deactivated: {cm_request.deactivate_controllers}")
+                f"Successfully switched profile. Activated: {cm_request.activate_controllers}, Deactivated: {cm_request.deactivate_controllers}"
+            )
         else:
-            self.get_logger().error(
-                f"Failed to switch profile. Message: {response.message}")
+            self.get_logger().error(f"Failed to switch profile. Message: {response.message}")
         return response
 
 
