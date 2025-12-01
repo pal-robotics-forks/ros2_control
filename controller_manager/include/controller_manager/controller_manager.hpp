@@ -682,6 +682,7 @@ private:
   ControllerManagerExecutionTime execution_time_;
 
   controller_manager::MovingAverageStatistics periodicity_stats_;
+  double lifecycle_check_time_ = 0.0;
 
   struct SwitchParams
   {
