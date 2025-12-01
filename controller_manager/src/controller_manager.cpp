@@ -825,6 +825,8 @@ void ControllerManager::init_resource_manager(const std::string & robot_descript
     register_controller_manager_statistics(
       read_cycle_exec_time_prefix,
       &component_info.read_statistics->execution_time.get_statistics());
+
+    REGISTER_ENTITY(hardware_interface::CM_STATISTICS_KEY, "lifecycle_check_time", &lifecycle_check_time_);
     REGISTER_ENTITY(
       hardware_interface::CM_STATISTICS_KEY, read_cycle_exec_time_prefix + "/current_value",
       &component_info.read_statistics->execution_time.get_current_data());
@@ -3060,6 +3062,8 @@ controller_interface::return_type ControllerManager::update(
   }
 
   rt_buffer_.deactivate_controllers_list.clear();
+  lifecycle_check_time_ = 0.0;
+  unsigned int active_controllers_count = 0;
   for (const auto & loaded_controller : rt_controller_list)
   {
     if (
@@ -3073,8 +3077,19 @@ controller_interface::return_type ControllerManager::update(
     }
     // TODO(v-lopez) we could cache this information
     // https://github.com/ros-controls/ros2_control/issues/153
+    const auto is_controller_active_start_time = std::chrono::steady_clock::now();
     if (is_controller_active(*loaded_controller.c))
     {
+      const double is_controller_active_time =
+        std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() -
+                                                  is_controller_active_start_time).count();
+      const bool is_controller_active_too_long = (is_controller_active_time > 100.0);  // 100 us
+      RCLCPP_WARN_EXPRESSION(
+        get_logger(), is_controller_active_too_long,
+        "Checking if controller '%s' is active took %.3f us which is longer than expected.",
+        loaded_controller.info.name.c_str(), is_controller_active_time);
+      lifecycle_check_time_ += is_controller_active_time;
+      active_controllers_count += 1;
       if (
         switch_params_.do_switch && loaded_controller.c->is_async() &&
         std::find(
@@ -3174,6 +3189,7 @@ controller_interface::return_type ControllerManager::update(
       }
     }
   }
+  // lifecycle_check_time_ /= active_controllers_count > 0 ? active_controllers_count : 1;
   if (!rt_buffer_.deactivate_controllers_list.empty())
   {
     rt_buffer_.fallback_controllers_list.clear();
