@@ -3077,7 +3077,7 @@ controller_interface::return_type ControllerManager::update(
     // TODO(v-lopez) we could cache this information
     // https://github.com/ros-controls/ros2_control/issues/153
     const auto is_controller_active_start_time = std::chrono::steady_clock::now();
-    bool is_controller_active = is_controller_active(loaded_controller.c);
+    bool is_controller_active_check = is_controller_active(loaded_controller.c);
     const double is_controller_active_time =
       std::chrono::duration<double, std::micro>(
         std::chrono::steady_clock::now() - is_controller_active_start_time)
@@ -3088,7 +3088,7 @@ controller_interface::return_type ControllerManager::update(
       "Checking if controller '%s' is active took %.3f us which is longer than expected.",
       loaded_controller.info.name.c_str(), is_controller_active_time);
     lifecycle_check_time_ += is_controller_active_time;
-    if (is_controller_active)
+    if (is_controller_active_check)
     {
       if (
         switch_params_.do_switch && loaded_controller.c->is_async() &&

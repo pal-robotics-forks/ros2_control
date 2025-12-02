@@ -14,6 +14,7 @@
 
 #include "hardware_interface/hardware_component.hpp"
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <utility>
@@ -361,7 +362,7 @@ const HardwareComponentStatisticsCollector & HardwareComponent::get_write_statis
 
 return_type HardwareComponent::read(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
-  const auto start_time = std::steady_clock::now();
+  const auto start_time = std::chrono::steady_clock::now();
   if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_state().id()))
   {
     last_read_cycle_time_ = time;
@@ -377,9 +378,9 @@ return_type HardwareComponent::read(const rclcpp::Time & time, const rclcpp::Dur
         .count();
     const bool is_hw_active_check_too_long = (is_hw_active_time > 50.0);  // 50 us
     RCLCPP_WARN_EXPRESSION(
-      get_logger(), is_hw_active_check_too_long,
+      impl_->get_logger(), is_hw_active_check_too_long,
       "Checking if hw '%s' is active in read took %.3f us which is longer than expected.",
-      loaded_controller.info.name.c_str(), is_hw_active_time);
+      impl_->get_hardware_info().name.c_str(), is_hw_active_time);
     const auto trigger_result = impl_->trigger_read(time, period);
     if (trigger_result.result == return_type::ERROR)
     {
@@ -411,7 +412,7 @@ return_type HardwareComponent::write(const rclcpp::Time & time, const rclcpp::Du
     return return_type::OK;
   }
 
-  const auto start_time = std::steady_clock::now();
+  const auto start_time = std::chrono::steady_clock::now();
   if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_state().id()))
   {
     last_write_cycle_time_ = time;
@@ -426,9 +427,9 @@ return_type HardwareComponent::write(const rclcpp::Time & time, const rclcpp::Du
         .count();
     const bool is_hw_active_check_too_long = (is_hw_active_time > 50.0);  // 50 us
     RCLCPP_WARN_EXPRESSION(
-      get_logger(), is_hw_active_check_too_long,
+      impl_->get_logger(), is_hw_active_check_too_long,
       "Checking if hw '%s' is active in write took %.3f us which is longer than expected.",
-      loaded_controller.info.name.c_str(), is_hw_active_time);
+      impl_->get_hardware_info().name.c_str(), is_hw_active_time);
     const auto trigger_result = impl_->trigger_write(time, period);
     if (trigger_result.result == return_type::ERROR)
     {
