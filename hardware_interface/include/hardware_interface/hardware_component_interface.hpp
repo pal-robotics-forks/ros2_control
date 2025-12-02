@@ -179,11 +179,15 @@ public:
             std::chrono::duration_cast<std::chrono::nanoseconds>(read_end_time - read_start_time),
             std::memory_order_release);
           const auto read_store_time = std::chrono::duration<double, std::micro>(
-            std::chrono::steady_clock::now() - read_store_time_start).count();
+                                         std::chrono::steady_clock::now() - read_store_time_start)
+                                         .count();
           const bool is_read_store_time_higher = (read_store_time > 1.e2);
           RCLCPP_WARN_EXPRESSION(
             get_logger(), is_read_store_time_higher,
-            "The async thread read store time is higher than usual: %f us and execution time is %f us", read_store_time, std::chrono::duration<double, std::micro>(read_end_time - read_start_time).count());
+            "The async thread read store time is higher than usual: %f us and execution time is %f "
+            "us",
+            read_store_time,
+            std::chrono::duration<double, std::micro>(read_end_time - read_start_time).count());
           if (ret_read != return_type::OK)
           {
             return ret_read;
@@ -194,11 +198,14 @@ public:
             this->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
           {
             const auto lifecycle_cond_time_end = std::chrono::steady_clock::now();
-            const auto lifecycle_cond_time = std::chrono::duration<double, std::micro>(lifecycle_cond_time_end - lifecycle_cond_time_start).count();
+            const auto lifecycle_cond_time = std::chrono::duration<double, std::micro>(
+                                               lifecycle_cond_time_end - lifecycle_cond_time_start)
+                                               .count();
             const bool is_lifecycle_cond_time_higher = (lifecycle_cond_time > 1.e2);
             RCLCPP_WARN_EXPRESSION(
               get_logger(), is_lifecycle_cond_time_higher,
-              "The async thread lifecycle condition time is higher than usual: %f us", lifecycle_cond_time);
+              "The async thread lifecycle condition time is higher than usual: %f us",
+              lifecycle_cond_time);
 
             const auto write_start_time = std::chrono::steady_clock::now();
             const auto ret_write = write(time, period);
@@ -209,25 +216,32 @@ public:
               std::chrono::duration_cast<std::chrono::nanoseconds>(
                 write_end_time - write_start_time),
               std::memory_order_release);
-            const auto write_store_time = std::chrono::duration<double, std::micro>(
-              std::chrono::steady_clock::now() - write_store_time_start).count();
+            const auto write_store_time =
+              std::chrono::duration<double, std::micro>(
+                std::chrono::steady_clock::now() - write_store_time_start)
+                .count();
             const bool is_write_store_time_higher = (write_store_time > 1.e2);
             RCLCPP_WARN_EXPRESSION(
               get_logger(), is_write_store_time_higher,
-              "The async thread write store time is higher than usual: %f us and execution time is : %f us", write_store_time, std::chrono::duration<double, std::micro>(write_end_time - write_start_time).count());
+              "The async thread write store time is higher than usual: %f us and execution time is "
+              ": %f us",
+              write_store_time,
+              std::chrono::duration<double, std::micro>(write_end_time - write_start_time).count());
 
             const double total_read_write_time =
-              std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - read_start_time).count();
+              std::chrono::duration<double, std::micro>(
+                std::chrono::steady_clock::now() - read_start_time)
+                .count();
             const bool is_total_read_write_time_higher = (total_read_write_time > 500.0);
             RCLCPP_WARN_EXPRESSION(
               get_logger(), is_total_read_write_time_higher,
-              "The async thread total read + write time is higher than usual: %f us (read : %f us write : %f us) and the other storage timings are %f us and %f us and lifecycle condition time is %f us.", 
+              "The async thread total read + write time is higher than usual: %f us (read : %f us "
+              "write : %f us) and the other storage timings are %f us and %f us and lifecycle "
+              "condition time is %f us.",
               total_read_write_time,
               std::chrono::duration<double, std::micro>(read_end_time - read_start_time).count(),
               std::chrono::duration<double, std::micro>(write_end_time - write_start_time).count(),
-              read_store_time,
-              write_store_time,
-              lifecycle_cond_time);
+              read_store_time, write_store_time, lifecycle_cond_time);
             return ret_write;
           }
           return return_type::OK;
@@ -548,7 +562,8 @@ public:
         status.execution_time = read_exec_time;
       }
       const auto read_store_time = std::chrono::duration<double, std::micro>(
-        std::chrono::steady_clock::now() - read_store_time_start).count();
+                                     std::chrono::steady_clock::now() - read_store_time_start)
+                                     .count();
       const bool is_read_store_time_higher = (read_store_time > 1.e2);
       RCLCPP_WARN_EXPRESSION(
         get_logger(), is_read_store_time_higher,
@@ -557,11 +572,12 @@ public:
       const auto trigger_start_time = std::chrono::steady_clock::now();
       const auto result = async_handler_->trigger_async_callback(time, period);
       const auto trigger_time = std::chrono::duration<double, std::micro>(
-        std::chrono::steady_clock::now() - trigger_start_time).count();
+                                  std::chrono::steady_clock::now() - trigger_start_time)
+                                  .count();
       const bool is_trigger_time_higher = (trigger_time > 1.e2);
       RCLCPP_WARN_EXPRESSION(
-        get_logger(), is_trigger_time_higher,
-        "The async trigger time is higher than usual: %f us", trigger_time);
+        get_logger(), is_trigger_time_higher, "The async trigger time is higher than usual: %f us",
+        trigger_time);
       status.successful = result.first;
       if (!status.successful)
       {
@@ -623,7 +639,8 @@ public:
       }
       status.result = write_return_info_.load(std::memory_order_acquire);
       const auto write_store_time = std::chrono::duration<double, std::micro>(
-        std::chrono::steady_clock::now() - write_store_time_start).count();
+                                      std::chrono::steady_clock::now() - write_store_time_start)
+                                      .count();
       const bool is_write_store_time_higher = (write_store_time > 1.e2);
       RCLCPP_WARN_EXPRESSION(
         get_logger(), is_write_store_time_higher,

@@ -361,6 +361,7 @@ const HardwareComponentStatisticsCollector & HardwareComponent::get_write_statis
 
 return_type HardwareComponent::read(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
+  const auto start_time = std::steady_clock::now();
   if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_state().id()))
   {
     last_read_cycle_time_ = time;
@@ -370,6 +371,15 @@ return_type HardwareComponent::read(const rclcpp::Time & time, const rclcpp::Dur
     impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
     impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
+    const double is_hw_active_time =
+      std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - start_time)
+        .count();
+    const bool is_hw_active_check_too_long = (is_hw_active_time > 50.0);  // 50 us
+    RCLCPP_WARN_EXPRESSION(
+      get_logger(), is_hw_active_check_too_long,
+      "Checking if hw '%s' is active in read took %.3f us which is longer than expected.",
+      loaded_controller.info.name.c_str(), is_hw_active_time);
     const auto trigger_result = impl_->trigger_read(time, period);
     if (trigger_result.result == return_type::ERROR)
     {
@@ -401,6 +411,7 @@ return_type HardwareComponent::write(const rclcpp::Time & time, const rclcpp::Du
     return return_type::OK;
   }
 
+  const auto start_time = std::steady_clock::now();
   if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_state().id()))
   {
     last_write_cycle_time_ = time;
@@ -409,6 +420,15 @@ return_type HardwareComponent::write(const rclcpp::Time & time, const rclcpp::Du
   // only call write in the active state
   if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
+    const double is_hw_active_time =
+      std::chrono::duration<double, std::micro>(
+        std::chrono::steady_clock::now() - start_time)
+        .count();
+    const bool is_hw_active_check_too_long = (is_hw_active_time > 50.0);  // 50 us
+    RCLCPP_WARN_EXPRESSION(
+      get_logger(), is_hw_active_check_too_long,
+      "Checking if hw '%s' is active in write took %.3f us which is longer than expected.",
+      loaded_controller.info.name.c_str(), is_hw_active_time);
     const auto trigger_result = impl_->trigger_write(time, period);
     if (trigger_result.result == return_type::ERROR)
     {
