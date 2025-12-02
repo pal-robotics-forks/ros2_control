@@ -72,7 +72,7 @@ const rclcpp_lifecycle::State & HardwareComponent::initialize(
   const hardware_interface::HardwareComponentParams & params)
 {
   std::unique_lock<std::recursive_mutex> lock(component_mutex_);
-  if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN)
+  if (impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN)
   {
     switch (impl_->init(params))
     {
@@ -96,7 +96,7 @@ const rclcpp_lifecycle::State & HardwareComponent::initialize(
 const rclcpp_lifecycle::State & HardwareComponent::configure()
 {
   std::unique_lock<std::recursive_mutex> lock(component_mutex_);
-  if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
+  if (impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
   {
     impl_->pause_async_operations();
     switch (impl_->on_configure(impl_->get_lifecycle_state()))
@@ -124,7 +124,7 @@ const rclcpp_lifecycle::State & HardwareComponent::cleanup()
 {
   std::unique_lock<std::recursive_mutex> lock(component_mutex_);
   impl_->enable_introspection(false);
-  if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+  if (impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
   {
     impl_->pause_async_operations();
     switch (impl_->on_cleanup(impl_->get_lifecycle_state()))
@@ -149,8 +149,8 @@ const rclcpp_lifecycle::State & HardwareComponent::shutdown()
   std::unique_lock<std::recursive_mutex> lock(component_mutex_);
   impl_->enable_introspection(false);
   if (
-    impl_->get_lifecycle_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN &&
-    impl_->get_lifecycle_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED)
+    impl_->get_lifecycle_id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN &&
+    impl_->get_lifecycle_id() != lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED)
   {
     impl_->pause_async_operations();
     switch (impl_->on_shutdown(impl_->get_lifecycle_state()))
@@ -179,7 +179,7 @@ const rclcpp_lifecycle::State & HardwareComponent::activate()
   {
     write_statistics_.reset_statistics();
   }
-  if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+  if (impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
   {
     impl_->pause_async_operations();
     impl_->prepare_for_activation();
@@ -208,7 +208,7 @@ const rclcpp_lifecycle::State & HardwareComponent::deactivate()
 {
   std::unique_lock<std::recursive_mutex> lock(component_mutex_);
   impl_->enable_introspection(false);
-  if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+  if (impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
     impl_->pause_async_operations();
     switch (impl_->on_deactivate(impl_->get_lifecycle_state()))
@@ -236,8 +236,8 @@ const rclcpp_lifecycle::State & HardwareComponent::error()
   std::unique_lock<std::recursive_mutex> lock(component_mutex_);
   impl_->enable_introspection(false);
   if (
-    impl_->get_lifecycle_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN &&
-    impl_->get_lifecycle_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
+    impl_->get_lifecycle_id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN &&
+    impl_->get_lifecycle_id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
   {
     impl_->pause_async_operations();
     switch (impl_->on_error(impl_->get_lifecycle_state()))
@@ -363,14 +363,14 @@ const HardwareComponentStatisticsCollector & HardwareComponent::get_write_statis
 return_type HardwareComponent::read(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   const auto start_time = std::chrono::steady_clock::now();
-  if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_state().id()))
+  if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_id()))
   {
     last_read_cycle_time_ = time;
     return return_type::OK;
   }
   if (
-    impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
-    impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE ||
+    impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
     const double is_hw_active_time =
       std::chrono::duration<double, std::micro>(
@@ -413,13 +413,13 @@ return_type HardwareComponent::write(const rclcpp::Time & time, const rclcpp::Du
   }
 
   const auto start_time = std::chrono::steady_clock::now();
-  if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_state().id()))
+  if (lifecycleStateThatRequiresNoAction(impl_->get_lifecycle_id()))
   {
     last_write_cycle_time_ = time;
     return return_type::OK;
   }
   // only call write in the active state
-  if (impl_->get_lifecycle_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+  if (impl_->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
   {
     const double is_hw_active_time =
       std::chrono::duration<double, std::micro>(
