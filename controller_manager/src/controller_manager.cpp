@@ -3077,7 +3077,7 @@ controller_interface::return_type ControllerManager::update(
     // TODO(v-lopez) we could cache this information
     // https://github.com/ros-controls/ros2_control/issues/153
     const auto is_controller_active_start_time = std::chrono::steady_clock::now();
-    bool is_controller_active_check = is_controller_active(loaded_controller.c);
+    const bool is_controller_active_check = loaded_controller.c->get_lifecycle_id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
     const double is_controller_active_time =
       std::chrono::duration<double, std::micro>(
         std::chrono::steady_clock::now() - is_controller_active_start_time)
