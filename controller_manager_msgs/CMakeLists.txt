@@ -29,6 +29,7 @@ set(srv_files
   srv/SetHardwareComponentState.srv
   srv/SwitchController.srv
   srv/SwitchProfiles.srv
+  srv/ListProfiles.srv
   srv/UnloadController.srv
 )
 

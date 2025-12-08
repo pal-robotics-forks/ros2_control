@@ -19,6 +19,7 @@ import os
 import sys
 import time
 import warnings
+import yaml
 
 from controller_manager import (
     configure_controller,
@@ -30,11 +31,11 @@ from controller_manager import (
     set_controller_parameters_from_param_files,
     bcolors,
 )
-from controller_manager_msgs.msg import ControllerManagerActivity, StringArray
-from controller_manager_msgs.srv import SwitchController, SwitchProfiles
+from controller_manager_msgs.msg import ControllerManagerActivity, StringArray, Profile
+from controller_manager_msgs.srv import SwitchController, SwitchProfiles, ListProfiles
 from controller_manager.controller_manager_services import ServiceNotFoundError
 
-from ament_index_python import get_resources
+from ament_index_python import get_resources, get_resource
 
 import rclpy
 from rclpy.node import Node
@@ -152,6 +153,29 @@ class ControllerManagerProfileService(Node):
             callback_group=self.callback_group,
         )
 
+        self.list_profiles_srv = self.create_service(
+            ListProfiles,
+            "~/list_profiles",
+            self.list_profiles_callback,
+            callback_group=self.callback_group,
+        )
+        self.list_available_profiles_srv = self.create_service(
+            ListProfiles,
+            "~/list_available_profiles",
+            self.list_available_profiles_callback,
+            callback_group=self.callback_group,
+        )
+        self.list_active_profiles_srv = self.create_service(
+            ListProfiles,
+            "~/list_active_profiles",
+            self.list_active_profiles_callback,
+            callback_group=self.callback_group,
+        )
+
+        # Cache of controller states
+        self.active_controllers = set()
+        self.loaded_controllers = set()
+
         # Load profiles from config file
         self.load_profiles()
 
@@ -170,15 +194,18 @@ class ControllerManagerProfileService(Node):
         )
 
     def activity_callback(self, msg):
-        print("Current active controllers:")
-        active_controllers = []
-        for controllers in msg.controllers:
-            print(f" - {controllers.name}: {controllers.state.label}")
-            if controllers.state.label == "active":
-                active_controllers.append(controllers.name)
+        self.active_controllers.clear()
+        self.loaded_controllers.clear()
+        for controller in msg.controllers:
+            self.loaded_controllers.add(controller.name)
+            if controller.state.label == "active":
+                self.active_controllers.add(controller.name)
+
         profile_names = []
-        for profile_name, controllers in self.profiles.items():
-            if all(controller in active_controllers for controller in controllers):
+        for profile_name, profile in self.profiles.items():
+            if not profile.controllers_list:
+                continue
+            if all(c in self.active_controllers for c in profile.controllers_list):
                 profile_names.append(profile_name)
 
         profile_msg = StringArray()
@@ -186,26 +213,113 @@ class ControllerManagerProfileService(Node):
         self.active_profiles_pub.publish(profile_msg)
 
     def load_profiles(self):
+        self.profiles = {}
         resources = get_resources("ros2_control_profile")
         if not resources:
-            self.get_logger().error("No ros2_control_profile resources found.")
-        else:
-            for resource_name, resource_path in resources.items():
-                self.get_logger().info(
-                    f"Loading ros2_control_profile resource '{resource_name}' from '{resource_path}'"
+            self.get_logger().info("No ros2_control_profile resources found.")
+
+        for resource_name, resource_path in resources.items():
+            self.get_logger().info(
+                f"Loading ros2_control_profile resource '{resource_name}' from '{resource_path}'"
+            )
+
+            try:
+                content, _ = get_resource("ros2_control_profile", resource_name)
+            except (LookupError, OSError):
+                self.get_logger().warning(
+                    f"Failed to load ros2_control_profile resource '{resource_name}'"
                 )
-        self.profiles = {}
-        self.profiles["broadcasters"] = ["joint_state_broadcaster"]
-        self.profiles["base_controller"] = [
-            "pid_controller_right_wheel_joint",
-            "pid_controller_left_wheel_joint",
-            "diffbot_base_controller",
-        ]
+                continue
+
+            data = None
+            # Check if content is a path relative to share
+            yaml_path_candidate = os.path.join(
+                resource_path, "share", resource_name, content.strip()
+            )
+
+            if os.path.exists(yaml_path_candidate):
+                try:
+                    with open(yaml_path_candidate) as f:
+                        data = yaml.safe_load(f)
+                    self.get_logger().info(f"Loaded profiles from file: {yaml_path_candidate}")
+                except Exception as e:
+                    self.get_logger().error(
+                        f"Failed to load YAML from file {yaml_path_candidate}: {e}"
+                    )
+            elif os.path.exists(content.strip()):
+                # It's an absolute path
+                try:
+                    with open(content.strip()) as f:
+                        data = yaml.safe_load(f)
+                    self.get_logger().info(f"Loaded profiles from file: {content.strip()}")
+                except Exception as e:
+                    self.get_logger().error(
+                        f"Failed to load YAML from file {content.strip()}: {e}"
+                    )
+            else:
+                # Try to load content as YAML directly
+                try:
+                    data = yaml.safe_load(content)
+                    if not isinstance(data, dict):
+                        data = None  # Not a profile config if reasonable
+                except yaml.YAMLError:
+                    pass
+
+            if not data:
+                self.get_logger().warning(
+                    f"Could not load profiles from resource '{resource_name}'. Content is neither a valid path nor valid profile YAML."
+                )
+                continue
+
+            for profile_name, info in data.items():
+                if profile_name in self.profiles:
+                    self.get_logger().warning(
+                        f"Profile '{profile_name}' already exists. Skipping duplicate from package '{resource_name}'."
+                    )
+                    continue
+
+                if "controllers_list" in info:
+                    profile = Profile()
+                    profile.name = profile_name
+                    profile.controllers_list = info["controllers_list"]
+                    profile.metadata = info.get("metadata", "")
+                    self.profiles[profile_name] = profile
+                    self.get_logger().info(f"Loaded profile '{profile_name}' from {resource_name}")
+                else:
+                    self.get_logger().warning(
+                        f"Profile '{profile_name}' from '{resource_name}' missing 'controllers_list'"
+                    )
+
+        self.get_logger().info(f"Loaded {len(self.profiles)} profiles")
+
+    def list_profiles_callback(self, request, response):
+        response.profiles = list(self.profiles.values())
+        return response
+
+    def list_available_profiles_callback(self, request, response):
+        available_profiles = []
+        for profile in self.profiles.values():
+            if all(c in self.loaded_controllers for c in profile.controllers_list):
+                available_profiles.append(profile)
+        response.profiles = available_profiles
+        return response
+
+    def list_active_profiles_callback(self, request, response):
+        active_profiles = []
+        for profile in self.profiles.values():
+            if all(c in self.active_controllers for c in profile.controllers_list):
+                active_profiles.append(profile)
+        response.profiles = active_profiles
+        return response
 
     def switch_profile_callback(self, request, response):
         cm_request = SwitchController.Request()
-        cm_request.activate_controllers = self.profiles[request.start[0]] if request.start else []
-        cm_request.deactivate_controllers = self.profiles[request.stop[0]] if request.stop else []
+        cm_request.activate_controllers = (
+            self.profiles[request.start[0]].controllers_list if request.start else []
+        )
+        cm_request.deactivate_controllers = (
+            self.profiles[request.stop[0]].controllers_list if request.stop else []
+        )
         cm_request.strictness = SwitchController.Request.STRICT
         cm_request.activate_asap = False
         cm_request.timeout = rclpy.duration.Duration(seconds=1.0).to_msg()
