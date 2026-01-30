@@ -581,7 +581,7 @@ public:
   void enable_introspection(bool enable);
 
 protected:
-  HardwareInfo info_;
+  [[deprecated ("Use get_hardware_info() instead")]] HardwareInfo info_;
   // interface names to InterfaceDescription
   std::unordered_map<std::string, InterfaceDescription> joint_state_interfaces_;
   std::unordered_map<std::string, InterfaceDescription> joint_command_interfaces_;

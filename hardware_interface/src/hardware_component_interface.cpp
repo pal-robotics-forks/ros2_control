@@ -45,6 +45,7 @@ public:
   realtime_tools::RealtimeThreadSafeBox<std::optional<control_msgs::msg::HardwareStatus>>
     hardware_status_box_;
   rclcpp::TimerBase::SharedPtr hardware_status_timer_;
+  HardwareInfo hardware_info_;
 };
 
 HardwareComponentInterface::HardwareComponentInterface()
@@ -69,24 +70,24 @@ CallbackReturn HardwareComponentInterface::init(
 {
   impl_->clock_ = params.clock;
   impl_->logger_ = params.logger;
-  info_ = params.hardware_info;
+  impl_->hardware_info_ = params.hardware_info;
   if (params.hardware_info.is_async)
   {
     realtime_tools::AsyncFunctionHandlerParams async_thread_params;
-    async_thread_params.thread_priority = info_.async_params.thread_priority;
+    async_thread_params.thread_priority = get_hardware_info().async_params.thread_priority;
     async_thread_params.scheduling_policy =
-      realtime_tools::AsyncSchedulingPolicy(info_.async_params.scheduling_policy);
-    async_thread_params.cpu_affinity_cores = info_.async_params.cpu_affinity_cores;
+      realtime_tools::AsyncSchedulingPolicy(get_hardware_info().async_params.scheduling_policy);
+    async_thread_params.cpu_affinity_cores = get_hardware_info().async_params.cpu_affinity_cores;
     async_thread_params.clock = params.clock;
     async_thread_params.logger = get_logger();
     async_thread_params.exec_rate = params.hardware_info.rw_rate;
-    async_thread_params.print_warnings = info_.async_params.print_warnings;
+    async_thread_params.print_warnings = get_hardware_info().async_params.print_warnings;
     RCLCPP_INFO(
       get_logger(), "Starting async handler with scheduler priority: %d and policy : %s",
-      info_.async_params.thread_priority,
+      get_hardware_info().async_params.thread_priority,
       async_thread_params.scheduling_policy.to_string().c_str());
     async_handler_ = std::make_unique<realtime_tools::AsyncFunctionHandler<return_type>>();
-    const bool is_sensor_type = (info_.type == "sensor");
+    const bool is_sensor_type = (get_hardware_info().type == "sensor");
     async_handler_->init(
       [this, is_sensor_type](const rclcpp::Time & time, const rclcpp::Duration & period)
       {
@@ -122,7 +123,7 @@ CallbackReturn HardwareComponentInterface::init(
 
   if (auto locked_executor = params.executor.lock())
   {
-    std::string node_name = hardware_interface::to_lower_case(params.hardware_info.name);
+    std::string node_name = hardware_interface::to_lower_case(get_hardware_info().name);
     std::replace(node_name.begin(), node_name.end(), '/', '_');
     impl_->hardware_component_node_ = std::make_shared<rclcpp::Node>(
       node_name, params.node_namespace, define_custom_node_options());
@@ -134,12 +135,12 @@ CallbackReturn HardwareComponentInterface::init(
       params.logger,
       "Executor is not available during hardware component initialization for '%s'. Skipping "
       "node creation!",
-      params.hardware_info.name.c_str());
+      get_hardware_info().name.c_str());
   }
 
   double publish_rate = 0.0;
-  auto it = info_.hardware_parameters.find("status_publish_rate");
-  if (it != info_.hardware_parameters.end())
+  auto it = get_hardware_info().hardware_parameters.find("status_publish_rate");
+  if (it != get_hardware_info().hardware_parameters.end())
   {
     try
     {
@@ -199,7 +200,7 @@ CallbackReturn HardwareComponentInterface::init(
                 {
                   RCLCPP_WARN_THROTTLE(
                     get_logger(), *impl_->clock_, 1000,
-                    "User's update_hardware_status_message() failed for '%s'.", info_.name.c_str());
+                    "User's update_hardware_status_message() failed for '%s'.", get_hardware_info().name.c_str());
                   return;
                 }
                 msg.header.stamp = this->get_clock()->now();
@@ -227,8 +228,9 @@ CallbackReturn HardwareComponentInterface::init(
     }
   }
 
+  info_ = impl_->hardware_info_;
   hardware_interface::HardwareComponentInterfaceParams interface_params;
-  interface_params.hardware_info = info_;
+  interface_params.hardware_info = impl_->hardware_info_;
   interface_params.executor = params.executor;
   return on_init(interface_params);
 }
@@ -251,23 +253,24 @@ CallbackReturn HardwareComponentInterface::on_init(
   const hardware_interface::HardwareComponentInterfaceParams & params)
 {
   info_ = params.hardware_info;
-  if (info_.type == "actuator")
+  impl_->hardware_info_ = params.hardware_info;
+  if (get_hardware_info().type == "actuator")
   {
-    parse_state_interface_descriptions(info_.joints, joint_state_interfaces_);
-    parse_command_interface_descriptions(info_.joints, joint_command_interfaces_);
+    parse_state_interface_descriptions(get_hardware_info().joints, joint_state_interfaces_);
+    parse_command_interface_descriptions(get_hardware_info().joints, joint_command_interfaces_);
   }
-  else if (info_.type == "sensor")
+  else if (get_hardware_info().type == "sensor")
   {
-    parse_state_interface_descriptions(info_.joints, joint_state_interfaces_);
-    parse_state_interface_descriptions(info_.sensors, sensor_state_interfaces_);
+    parse_state_interface_descriptions(get_hardware_info().joints, joint_state_interfaces_);
+    parse_state_interface_descriptions(get_hardware_info().sensors, sensor_state_interfaces_);
   }
-  else if (info_.type == "system")
+  else if (get_hardware_info().type == "system")
   {
-    parse_state_interface_descriptions(info_.joints, joint_state_interfaces_);
-    parse_state_interface_descriptions(info_.sensors, sensor_state_interfaces_);
-    parse_state_interface_descriptions(info_.gpios, gpio_state_interfaces_);
-    parse_command_interface_descriptions(info_.joints, joint_command_interfaces_);
-    parse_command_interface_descriptions(info_.gpios, gpio_command_interfaces_);
+    parse_state_interface_descriptions(get_hardware_info().joints, joint_state_interfaces_);
+    parse_state_interface_descriptions(get_hardware_info().sensors, sensor_state_interfaces_);
+    parse_state_interface_descriptions(get_hardware_info().gpios, gpio_state_interfaces_);
+    parse_command_interface_descriptions(get_hardware_info().joints, joint_command_interfaces_);
+    parse_command_interface_descriptions(get_hardware_info().gpios, gpio_command_interfaces_);
   }
   return CallbackReturn::SUCCESS;
 }
@@ -419,7 +422,7 @@ HardwareComponentCycleStatus HardwareComponentInterface::trigger_read(
 {
   HardwareComponentCycleStatus status;
   status.result = return_type::ERROR;
-  if (info_.is_async)
+  if (get_hardware_info().is_async)
   {
     status.result = impl_->read_return_info_.load(std::memory_order_acquire);
     const auto read_exec_time = impl_->read_execution_time_.load(std::memory_order_acquire);
@@ -432,10 +435,10 @@ HardwareComponentCycleStatus HardwareComponentInterface::trigger_read(
     if (!status.successful)
     {
       RCLCPP_WARN_EXPRESSION(
-        get_logger(), info_.async_params.print_warnings,
+        get_logger(), get_hardware_info().async_params.print_warnings,
         "Trigger read/write called while the previous async trigger is still in progress for "
         "hardware interface : '%s'. Failed to trigger read/write cycle!",
-        info_.name.c_str());
+        get_hardware_info().name.c_str());
       status.result = return_type::OK;
       return status;
     }
@@ -456,7 +459,7 @@ HardwareComponentCycleStatus HardwareComponentInterface::trigger_write(
 {
   HardwareComponentCycleStatus status;
   status.result = return_type::ERROR;
-  if (info_.is_async)
+  if (get_hardware_info().is_async)
   {
     status.successful = true;
     const auto write_exec_time = impl_->write_execution_time_.load(std::memory_order_acquire);
@@ -483,9 +486,9 @@ return_type HardwareComponentInterface::write(
   return return_type::OK;
 }
 
-const std::string & HardwareComponentInterface::get_name() const { return info_.name; }
+const std::string & HardwareComponentInterface::get_name() const { return get_hardware_info().name; }
 
-const std::string & HardwareComponentInterface::get_group_name() const { return info_.group; }
+const std::string & HardwareComponentInterface::get_group_name() const { return get_hardware_info().group; }
 
 const rclcpp_lifecycle::State & HardwareComponentInterface::get_lifecycle_state() const
 {
@@ -517,7 +520,7 @@ const StateInterface::SharedPtr & HardwareComponentInterface::get_state_interfac
     throw std::runtime_error(
       fmt::format(
         "The requested state interface not found: '{}' in hardware component: '{}'.",
-        interface_name, info_.name));
+        interface_name, get_hardware_info().name));
   }
   return it->second;
 }
@@ -536,7 +539,7 @@ const CommandInterface::SharedPtr & HardwareComponentInterface::get_command_inte
     throw std::runtime_error(
       fmt::format(
         "The requested command interface not found: '{}' in hardware component: '{}'.",
-        interface_name, info_.name));
+        interface_name, get_hardware_info().name));
   }
   return it->second;
 }
@@ -550,7 +553,7 @@ rclcpp::Node::SharedPtr HardwareComponentInterface::get_node() const
   return impl_->hardware_component_node_;
 }
 
-const HardwareInfo & HardwareComponentInterface::get_hardware_info() const { return info_; }
+const HardwareInfo & HardwareComponentInterface::get_hardware_info() const { return impl_->hardware_info_; }
 
 void HardwareComponentInterface::pause_async_operations()
 
