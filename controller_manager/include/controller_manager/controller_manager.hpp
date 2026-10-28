@@ -97,6 +97,8 @@ public:
 
   /// Shutdown all controllers in the controller manager.
   /**
+   * Waits for any in-progress update() to finish; update() returns early while it runs, so that
+   * controllers never update while their interfaces are being released.
    * \return true if all controllers are successfully shutdown, false otherwise.
    */
   bool shutdown_controllers();
@@ -681,6 +683,8 @@ private:
   /// mutex copied from ROS1 Control, protects service callbacks
   /// not needed if we're guaranteed that the callbacks don't come from multiple threads
   std::mutex services_lock_;
+  /// held by update(), taken by shutdown_controllers() to keep controllers from updating meanwhile
+  RTControllerListWrapper::controllers_lock_type controllers_update_lock_;
   rclcpp::Publisher<controller_manager_msgs::msg::ControllerManagerActivity>::SharedPtr
     controller_manager_activity_publisher_;
   rclcpp::Service<controller_manager_msgs::srv::ListControllers>::SharedPtr

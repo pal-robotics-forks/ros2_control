@@ -637,6 +637,9 @@ ControllerManager::~ControllerManager()
 bool ControllerManager::shutdown_controllers()
 {
   RCLCPP_INFO(get_logger(), "Shutting down all controllers in the controller manager.");
+  // The RT loop keeps running during the pre-shutdown callback, keep it out of update()
+  std::lock_guard<RTControllerListWrapper::controllers_lock_type> update_guard(
+    controllers_update_lock_);
   // Shutdown all controllers
   std::lock_guard<RTControllerListWrapper::controllers_lock_type> guard(
     rt_controllers_wrapper_.controllers_lock_);
@@ -3386,6 +3389,13 @@ void ControllerManager::manage_switch()
 controller_interface::return_type ControllerManager::update(
   const rclcpp::Time & time, const rclcpp::Duration & period)
 {
+  // Only one thread runs update(), so this fails only while shutdown_controllers() holds the lock
+  std::unique_lock<RTControllerListWrapper::controllers_lock_type> update_guard(
+    controllers_update_lock_, std::try_to_lock);
+  if (!update_guard.owns_lock())
+  {
+    return controller_interface::return_type::OK;
+  }
   const auto start_time = std::chrono::steady_clock::now();
   execution_time_.switch_time = 0.0;
   execution_time_.switch_chained_mode_time = 0.0;

@@ -2545,13 +2545,10 @@ TEST_F(TestControllerManagerSrvs, switch_controller_controllers_taking_long_time
   unsigned int old_counter_1 = test_controller_1->internal_counter;
   unsigned int old_counter_2 = test_controller_2->internal_counter;
 
-  EXPECT_EQ(
-    controller_interface::return_type::OK,
-    cm_->update(time_, rclcpp::Duration::from_seconds(0.01)));
+  // the fixture's RT thread is updating the controllers
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   ASSERT_GE(test_controller_1->internal_counter, old_counter_1 + 1);
   ASSERT_GE(test_controller_2->internal_counter, old_counter_2 + 1);
-  EXPECT_EQ(old_counter_1 + 1, test_controller_1->internal_counter);
-  EXPECT_EQ(old_counter_2 + 1, test_controller_2->internal_counter);
 
   ASSERT_EQ(
     lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE,
@@ -2639,12 +2636,11 @@ TEST_F(TestControllerManagerSrvs, switch_controller_controllers_taking_long_time
   old_counter_1 = test_controller_1->internal_counter;
   old_counter_2 = test_controller_2->internal_counter;
   const auto old_counter_3 = test_controller_3->internal_counter;
-  EXPECT_EQ(
-    controller_interface::return_type::OK,
-    cm_->update(time_, rclcpp::Duration::from_seconds(0.01)));
-  EXPECT_EQ(old_counter_1 + 1, test_controller_1->internal_counter);
-  EXPECT_EQ(old_counter_2 + 1, test_controller_2->internal_counter);
-  EXPECT_EQ(old_counter_3 + 1, test_controller_3->internal_counter);
+  // the fixture's RT thread is updating the controllers
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  EXPECT_GE(test_controller_1->internal_counter, old_counter_1 + 1);
+  EXPECT_GE(test_controller_2->internal_counter, old_counter_2 + 1);
+  EXPECT_GE(test_controller_3->internal_counter, old_counter_3 + 1);
 }
 
 TEST_F(TestControllerManagerSrvs, switch_controller_test_two_controllers_using_same_interface)

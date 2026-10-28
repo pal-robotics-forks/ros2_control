@@ -2055,7 +2055,9 @@ TEST_F(
       controller_interface::return_type::OK,
       cm_->update(time_, rclcpp::Duration::from_seconds(0.01)));
     EXPECT_EQ(controller_interface::return_type::OK, switch_future.get());
-
+  }
+  // runner stopped, so the update() calls below are the only ones running
+  {
     EXPECT_EQ(
       lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE,
       test_controller_1->get_lifecycle_state().id());
@@ -3651,4 +3653,82 @@ TEST_F(TestControllerManagerNotHandlingExceptions, controller_configure_on_excep
   EXPECT_EQ(
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE,
     test_controller->get_lifecycle_state().id());
+}
+
+namespace
+{
+// Holds update() open long enough for a concurrent shutdown to release the interfaces under it
+class SlowUpdateController : public test_controller::TestController
+{
+public:
+  controller_interface::return_type update(const rclcpp::Time &, const rclcpp::Duration &) override
+  {
+    in_update = true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    if (command_interfaces_.empty())
+    {
+      update_with_released_interfaces = true;
+    }
+    return controller_interface::return_type::OK;
+  }
+
+  std::atomic_bool in_update{false};
+  std::atomic_bool update_with_released_interfaces{false};
+};
+}  // namespace
+
+class TestControllerManagerShutdown
+: public ControllerManagerFixture<controller_manager::ControllerManager>
+{
+};
+
+TEST_F(TestControllerManagerShutdown, update_not_running_while_shutting_down_controllers)
+{
+  controller_interface::InterfaceConfiguration cmd_itfs_cfg;
+  cmd_itfs_cfg.type = controller_interface::interface_configuration_type::INDIVIDUAL;
+  cmd_itfs_cfg.names = {"joint1/position"};
+  auto controller = std::make_shared<SlowUpdateController>();
+  controller->set_command_interface_configuration(cmd_itfs_cfg);
+
+  {
+    ControllerManagerRunner cm_runner(this);
+    cm_->add_controller(
+      controller, test_controller::TEST_CONTROLLER_NAME,
+      test_controller::TEST_CONTROLLER_CLASS_NAME);
+    ASSERT_EQ(
+      controller_interface::return_type::OK,
+      cm_->configure_controller(test_controller::TEST_CONTROLLER_NAME));
+    ASSERT_EQ(
+      controller_interface::return_type::OK,
+      cm_->switch_controller(
+        {test_controller::TEST_CONTROLLER_NAME}, {},
+        controller_manager_msgs::srv::SwitchController::Request::STRICT, true,
+        rclcpp::Duration(0, 0)));
+  }
+  ASSERT_EQ(
+    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, controller->get_lifecycle_state().id());
+
+  // Mimic the RT loop of ros2_control_node, which keeps running during the pre-shutdown callback
+  controller->in_update = false;
+  std::atomic_bool stop{false};
+  std::thread rt_thread(
+    [&]()
+    {
+      while (!stop)
+      {
+        cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
+      }
+    });
+  while (!controller->in_update)
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
+  cm_->shutdown_controllers();
+  stop = true;
+  rt_thread.join();
+
+  EXPECT_FALSE(controller->update_with_released_interfaces);
+  EXPECT_EQ(
+    lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED, controller->get_lifecycle_state().id());
 }
