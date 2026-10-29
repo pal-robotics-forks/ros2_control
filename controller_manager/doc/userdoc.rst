@@ -455,6 +455,16 @@ The parsed controller config file can follow the same conventions as the typical
           - position
           .....
 
+The namespace can also be split across nested keys, with or without the leading slash (``/rrbot_1:`` or ``rrbot_1:``):
+
+ .. code-block:: yaml
+
+    /rrbot_1:
+      position_trajectory_controller:
+        ros__parameters:
+          type: joint_trajectory_controller/JointTrajectoryController
+          .....
+
 ``unspawner``
 ^^^^^^^^^^^^^
 
