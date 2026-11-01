@@ -527,9 +527,9 @@ void unregister_controller_manager_statistics(const std::string & name)
   UNREGISTER_ENTITY(hardware_interface::CM_STATISTICS_KEY, name + "/current_value");
 }
 
-/// Get the controller manager's node arguments that are forwarded to the nodes of the controllers
-/// and hardware components. The CM's own node name/namespace remaps (not targeted to a specific
-/// node) and the robot_description related arguments are dropped, as they only belong to the CM.
+/// Get the controller manager's node arguments that are forwarded to the nodes of the hardware
+/// components. The CM's own node name/namespace remaps (not targeted to a specific
+/// node) are dropped, as they only belong to the CM.
 std::vector<std::string> get_forwarded_node_arguments(const std::vector<std::string> & cm_args)
 {
   auto starts_with = [](const std::string & str, const std::string & prefix)
@@ -537,9 +537,7 @@ std::vector<std::string> get_forwarded_node_arguments(const std::vector<std::str
   std::vector<std::string> forwarded_args;
   for (const auto & arg : cm_args)
   {
-    if (
-      starts_with(arg, "__ns:=") || starts_with(arg, "__node:=") || starts_with(arg, "__name:=") ||
-      arg.find("robot_description") != std::string::npos)
+    if (starts_with(arg, "__ns:=") || starts_with(arg, "__node:=") || starts_with(arg, "__name:="))
     {
       // drop the flag preceding the skipped argument as well
       if (
@@ -865,7 +863,7 @@ void ControllerManager::init_resource_manager(const std::string & robot_descript
   params.return_failed_hardware_names_on_return_deactivate_write_cycle_ =
     params_->defaults.deactivate_controllers_on_hardware_self_deactivate;
   params.handle_exceptions = params_->handle_exceptions;
-  // Same as for controllers: the arguments parsed to the controller manager are forwarded
+  // the arguments parsed to the controller manager are forwarded (not to the controllers)
   params.hardware_components_node_options_args =
     get_forwarded_node_arguments(get_node_options().arguments());
   if (resource_manager_ == nullptr)
@@ -5010,12 +5008,6 @@ rclcpp::NodeOptions ControllerManager::determine_controller_node_options(
 {
   rclcpp::NodeOptions controller_node_options = controller.c->define_custom_node_options();
   std::vector<std::string> node_options_arguments = controller_node_options.arguments();
-
-  // forward the arguments parsed to the controller manager
-  for (const auto & arg : get_forwarded_node_arguments(get_node_options().arguments()))
-  {
-    node_options_arguments.push_back(arg);
-  }
 
   // add parameter files specified in controller's info
   for (const auto & parameters_file : controller.info.parameters_files)

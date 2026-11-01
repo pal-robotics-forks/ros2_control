@@ -415,7 +415,7 @@ public:
     rclcpp::NodeOptions options = controller_manager::get_cm_node_options();
     options.arguments(
       {"--ros-args", "-r", "__ns:=/cm_ns", "-p", "forwarded_param:=42", "-r",
-       "testsystemhardware:__ns:=/system_hw_ns", "-r", "fwd_test_controller:__ns:=/ctrl_ns"});
+       "testsystemhardware:__ns:=/system_hw_ns"});
     cm_ =
       std::make_shared<controller_manager::ControllerManager>(executor_, TEST_CM_NAME, "", options);
     run_updater_ = false;
@@ -428,7 +428,7 @@ public:
   }
 };
 
-TEST_F(TestControllerManagerForwardedArgs, cm_arguments_are_forwarded_to_controllers_and_hardware)
+TEST_F(TestControllerManagerForwardedArgs, cm_arguments_are_forwarded_to_hardware_only)
 {
   ASSERT_STREQ("/cm_ns", cm_->get_namespace());
 
@@ -438,11 +438,11 @@ TEST_F(TestControllerManagerForwardedArgs, cm_arguments_are_forwarded_to_control
       controller, "fwd_test_controller", test_controller::TEST_CONTROLLER_CLASS_NAME),
     nullptr);
   auto ctrl_node = controller->get_node();
-  // node specific remap is forwarded, CM's own `__ns` remap is not overriding it
-  EXPECT_STREQ("/ctrl_ns", ctrl_node->get_namespace());
+  // the CM's arguments are not forwarded to the controllers
+  EXPECT_STREQ("/cm_ns", ctrl_node->get_namespace());
   EXPECT_STREQ("fwd_test_controller", ctrl_node->get_name());
   EXPECT_EQ(
-    1u,
+    0u,
     ctrl_node->get_node_parameters_interface()->get_parameter_overrides().count("forwarded_param"));
 
   auto has_node = [this](const std::string & fqn)
