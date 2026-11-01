@@ -23,7 +23,7 @@ controller_manager
 * The ``spawner`` now supports per controller arguments, while parsing the arguments for multiple controllers using ``--controller`` option. (`#2895 <https://github.com/ros-controls/ros2_control/pull/2895>`__)
 * Added new ``cleanup_controller`` service to the controller manager to allow cleaning up controllers from external clients. (`#2414 <https://github.com/ros-controls/ros2_control/pull/2414>`__)
 * Removed forwarding of the controller manager's ros arguments to the controllers via NodeOptions. (`#3016 <https://github.com/ros-controls/ros2_control/pull/3016>`__)
-* The controller manager's ros arguments are forwarded again to the controllers and also to the hardware components, except its own node name and namespace remaps and the ``robot_description`` arguments.
+* The controller manager's ros arguments are now forwarded to the hardware components' nodes (but still not to the controllers), except its own node name and namespace remaps.
 * The ``spawner`` now forwards all the parameter files parsed to the spawner node to the spawned controllers. This would support ``allow_substs`` approach. (`#3136 <https://github.com/ros-controls/ros2_control/pull/3136>`__)
 * ``configure_controller`` no longer implicitly cleans up an ``inactive`` controller before configuring; it now strictly requires the ``unconfigured`` state and returns an error otherwise. (`#3196 <https://github.com/ros-controls/ros2_control/pull/3196>`__)
 * The ``spawner`` skips configuring an already configured controller. Use the new ``--reconfigure`` argument to cleanup and configure it again. (`#3196 <https://github.com/ros-controls/ros2_control/pull/3196>`__)

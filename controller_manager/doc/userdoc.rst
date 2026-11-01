@@ -138,11 +138,10 @@ The controller_manager can be launched with the ros2_control_node executable. Th
     )
 
 Forwarding ROS arguments
-  The ROS arguments parsed to the ``controller_manager`` node (e.g., ``remappings`` and ``parameters`` of the launch ``Node``) are forwarded to the nodes of the controllers and hardware components.
-  The ``controller_manager``'s own node name and namespace remaps (``__node:=``, ``__ns:=``) and the ``robot_description`` related arguments are not forwarded.
-  Node specific remaps can be used to target a single controller or hardware component, the latter is named after the lower case ``name`` of its ``<ros2_control>`` tag.
-  Arguments from the spawner's ``--controller-ros-args`` are appended after the forwarded ones.
-  Global arguments of the process are not used by the controllers and hardware components.
+  The ROS arguments parsed to the ``controller_manager`` node (e.g., ``remappings`` and ``parameters`` of the launch ``Node``) are forwarded to the nodes of the hardware components, but not to the controllers (use the spawner's ``--controller-ros-args`` for those).
+  The ``controller_manager``'s own node name and namespace remaps (``__node:=``, ``__ns:=``) are not forwarded.
+  Node specific remaps can be used to target a single hardware component, which is named after the lower case ``name`` of its ``<ros2_control>`` tag.
+  Global arguments of the process are not used by the hardware components.
 
   .. code-block:: python
 
