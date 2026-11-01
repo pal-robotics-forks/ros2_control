@@ -465,6 +465,8 @@ The namespace can also be split across nested keys, with or without the leading 
           type: joint_trajectory_controller/JointTrajectoryController
           .....
 
+Entries are matched against the controller's fully qualified name with the same rules as ``rclcpp``: ``/*`` matches one namespace token and ``/**`` any number of them, anywhere in the name (e.g. ``/*/position_trajectory_controller`` or ``/rrbot_1/**/position_trajectory_controller``). When several entries match, they are applied in file order and later files override earlier ones, so the last match wins, as at runtime.
+
 ``unspawner``
 ^^^^^^^^^^^^^
 
