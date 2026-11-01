@@ -26,6 +26,8 @@ from controller_manager_msgs.srv import (
     CleanupController,
 )
 
+import re
+
 import rclpy
 import yaml
 from rcl_interfaces.msg import Parameter
@@ -341,91 +343,110 @@ def cleanup_controller(
 
 def _get_ros_param_nodes(parameters):
     """
-    Flatten a parsed ROS parameter YAML into a dict of node path -> node entry.
+    Collect the node entries of a parsed ROS parameter YAML, the way rcl_yaml_param_parser does.
 
-    ROS allows a node's namespace to be split across nested YAML keys, with or without a
-    leading slash, e.g. ``/ns/ctrl``, ``ns/ctrl``, ``{/ns: {ctrl: ...}}`` all refer to the same
-    node. Paths are returned without leading/trailing slashes (``ns/ctrl``, ``**/ctrl``, ``**``)
-    so that all of these forms compare equal.
+    A node's namespace may be split across nested YAML keys, with or without a leading slash on
+    the top-level key, e.g. ``/ns/ctrl``, ``ns/ctrl`` and ``{/ns: {ctrl: ...}}`` all name
+    ``/ns/ctrl``. Entries naming the same node are merged into the position of its first
+    appearance, later values overriding earlier ones. Nested keys starting with ``/`` are
+    skipped, as rcl rejects them (repeated slash).
 
     :param parameters: dict loaded from a ROS parameter YAML file
-    :return: dict mapping each node path to its entry (a dict holding ``ros__parameters``)
+    :return: dict mapping each node name (with leading slash, may contain ``*``/``**``
+        wildcards) to its merged ``ros__parameters``, in rcl's order
     """
     nodes = {}
 
-    def walk(tree, prefix):
+    def walk(tree, name):
         if not isinstance(tree, dict):
             return
         if "ros__parameters" in tree:
-            nodes[prefix] = tree
+            nodes.setdefault(name, {}).update(tree["ros__parameters"] or {})
         for key, value in tree.items():
-            if key != "ros__parameters":
-                walk(value, "/".join(p for p in f"{prefix}/{key}".split("/") if p))
+            key = str(key)
+            if key == "ros__parameters" or (name and key.startswith("/")):
+                continue
+            walk(value, f"{name}/{key.lstrip('/')}")
 
     walk(parameters, "")
     return nodes
 
 
-def _get_controller_lookup_keys(controller_name: str, namespace: str):
-    """Return the node paths (as produced by _get_ros_param_nodes) that may hold the controller."""
-    namespaced_controller = f"{namespace.strip('/')}/{controller_name}".strip("/")
-    return [
-        controller_name,
-        namespaced_controller,
-        f"**/{controller_name}",
-        f"**/{namespaced_controller}",
-        "**",
-    ]
+def _load_ros_param_nodes(parameter_file):
+    with open(parameter_file) as f:
+        return _get_ros_param_nodes(yaml.safe_load(f))
+
+
+def _node_name_matches(node_name: str, node_fqn: str) -> bool:
+    """Match a parameter file node name against a node FQN, as rclcpp's is_node_name_matched."""
+    # "/*" -> one namespace token, hence "/**" -> "(/\w+)*", i.e. any number of tokens
+    return re.fullmatch(node_name.replace("/*", r"(/\w+)"), node_fqn) is not None
+
+
+def _controller_fqn(controller_name: str, namespace: str) -> str:
+    return "/" + f"{namespace.strip('/')}/{controller_name}".strip("/")
 
 
 def get_params_files_with_controller_parameters(
     node, controller_name: str, namespace: str, parameter_files: list
 ):
+    """
+    Return the parameter files that hold an entry matching the controller.
+
+    Entries are matched against the controller's fully qualified name with the same rules as
+    rclcpp, including ``/*`` and ``/**`` wildcards anywhere in the node name.
+
+    :param node: node used for logging
+    :param controller_name: name of the controller
+    :param namespace: namespace the controller is spawned in
+    :param parameter_files: list of parameter file paths
+    :return: the subset of ``parameter_files`` holding the controller, in the given order
+    """
+    controller_fqn = _controller_fqn(controller_name, namespace)
     controller_parameter_files = []
     for parameter_file in parameter_files:
         if parameter_file in controller_parameter_files:
             continue
-        with open(parameter_file) as f:
-            nodes = _get_ros_param_nodes(yaml.safe_load(f))
-        for key in _get_controller_lookup_keys(controller_name, namespace):
-            if key in nodes:
-                if key == controller_name and namespace != "/":
-                    node.get_logger().fatal(
-                        f"{bcolors.FAIL}Missing namespace : {namespace} or wildcard in parameter file for controller : {controller_name}{bcolors.ENDC}"
-                    )
-                    break
-                controller_parameter_files.append(parameter_file)
-                break
+        nodes = _load_ros_param_nodes(parameter_file)
+        if any(_node_name_matches(name, controller_fqn) for name in nodes):
+            controller_parameter_files.append(parameter_file)
+        elif f"/{controller_name}" in nodes:
+            node.get_logger().warning(
+                f"{bcolors.WARNING}Missing namespace : {namespace} or wildcard in parameter file {parameter_file} for controller : {controller_name}{bcolors.ENDC}"
+            )
     return controller_parameter_files
 
 
 def get_parameter_from_param_files(
     node, controller_name: str, namespace: str, parameter_files: list, parameter_name: str
 ):
-    namespaced_controller = (
-        f"/{controller_name}" if namespace == "/" else f"{namespace}/{controller_name}"
-    )
-    controller_param_dict = None
+    """
+    Return the value a controller would get for a parameter from the given parameter files.
+
+    As at runtime, every matching entry is applied in order, so the last match across all files
+    wins.
+
+    :param node: node used for logging
+    :param controller_name: name of the controller
+    :param namespace: namespace the controller is spawned in
+    :param parameter_files: list of parameter file paths, later files overriding earlier ones
+    :param parameter_name: name of the parameter to look up
+    :return: the parameter value, or None if not set (logged as fatal if the controller is in
+        none of the files)
+    """
+    controller_fqn = _controller_fqn(controller_name, namespace)
+    found = False
+    value = None
     for parameter_file in parameter_files:
-        with open(parameter_file) as f:
-            nodes = _get_ros_param_nodes(yaml.safe_load(f))
-        controller_param_dict = None
-        for key in _get_controller_lookup_keys(controller_name, namespace):
-            if key not in nodes:
-                continue
-            if key == controller_name and namespace != "/":
-                node.get_logger().fatal(
-                    f"{bcolors.FAIL}Missing namespace : {namespace} or wildcard in parameter file for controller : {controller_name}{bcolors.ENDC}"
-                )
-                break
-            controller_param_dict = nodes[key]
-            if parameter_name in (controller_param_dict["ros__parameters"] or {}):
-                return controller_param_dict["ros__parameters"][parameter_name]
-    if controller_param_dict is None:
+        for name, params in _load_ros_param_nodes(parameter_file).items():
+            if _node_name_matches(name, controller_fqn):
+                found = True
+                value = params.get(parameter_name, value)
+    if not found:
         node.get_logger().fatal(
-            f"{bcolors.FAIL}Controller : {namespaced_controller} parameters not found in parameter files : {parameter_files}{bcolors.ENDC}"
+            f"{bcolors.FAIL}Controller : {controller_fqn} parameters not found in parameter files : {parameter_files}{bcolors.ENDC}"
         )
-    return None
+    return value
 
 
 def set_controller_parameters(

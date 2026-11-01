@@ -44,6 +44,12 @@ def _indent(text, level):
         ("/ns", "ns/ctrl:\n" + _indent(PARAMS, 1)),
         ("/a/b", "/a:\n  b:\n    ctrl:\n" + _indent(PARAMS, 3)),
         ("/ns", "/**:\n  ns:\n    ctrl:\n" + _indent(PARAMS, 3)),
+        # wildcards matched like rclcpp's is_node_name_matched
+        ("/a", "/*/ctrl:\n" + _indent(PARAMS, 1)),
+        ("/a/b", "/a/**/ctrl:\n" + _indent(PARAMS, 1)),
+        ("/", "/*:\n" + _indent(PARAMS, 1)),
+        # an entry without namespace must not hide a valid namespaced one
+        ("/ns", "ctrl:\n  ros__parameters:\n    type: other\n/ns/ctrl:\n" + _indent(PARAMS, 1)),
     ],
 )
 def test_controller_found_in_param_file(tmp_path, namespace, yaml_text):
@@ -64,6 +70,8 @@ def test_controller_found_in_param_file(tmp_path, namespace, yaml_text):
         ("/ns", "ctrl:\n" + _indent(PARAMS, 1)),
         ("/ns", "/other:\n  ctrl:\n" + _indent(PARAMS, 2)),
         ("/", "/ns:\n  ctrl:\n" + _indent(PARAMS, 2)),
+        # rcl rejects a nested key with a leading slash (repeated slash)
+        ("/ns", "/ns:\n  /ctrl:\n" + _indent(PARAMS, 2)),
     ],
 )
 def test_controller_not_found_in_param_file(tmp_path, namespace, yaml_text):
@@ -73,3 +81,48 @@ def test_controller_not_found_in_param_file(tmp_path, namespace, yaml_text):
     files = [str(param_file)]
     assert get_params_files_with_controller_parameters(node, "ctrl", namespace, files) == []
     assert get_parameter_from_param_files(node, "ctrl", namespace, files, "type") is None
+
+
+def _write(tmp_path, name, yaml_text):
+    param_file = tmp_path / name
+    param_file.write_text(yaml_text)
+    return str(param_file)
+
+
+def test_last_matching_entry_in_file_wins(tmp_path):
+    files = [
+        _write(
+            tmp_path,
+            "p.yaml",
+            "/ns/ctrl:\n  ros__parameters:\n    type: A\n"
+            "/**:\n  ros__parameters:\n    type: B\n",
+        )
+    ]
+    assert get_parameter_from_param_files(MagicMock(), "ctrl", "/ns", files, "type") == "B"
+
+
+def test_later_file_overrides_earlier(tmp_path):
+    files = [
+        _write(tmp_path, "a.yaml", "/ns/ctrl:\n  ros__parameters:\n    type: A\n"),
+        _write(tmp_path, "b.yaml", "/**:\n  ros__parameters:\n    type: B\n"),
+    ]
+    assert get_parameter_from_param_files(MagicMock(), "ctrl", "/ns", files, "type") == "B"
+
+
+def test_duplicate_node_entries_are_merged(tmp_path):
+    # rcl merges entries naming the same node into the slot of its first appearance, the later
+    # entry only overriding the keys it sets. So the /** entry below still wins over "ns: ctrl:"
+    files = [
+        _write(
+            tmp_path,
+            "p.yaml",
+            "/ns/ctrl:\n  ros__parameters:\n    type: A\n    fallback_controllers: [f]\n"
+            "/**:\n  ros__parameters:\n    type: C\n"
+            "ns:\n  ctrl:\n    ros__parameters:\n      type: B\n",
+        )
+    ]
+    node = MagicMock()
+    assert get_parameter_from_param_files(node, "ctrl", "/ns", files, "type") == "C"
+    assert get_parameter_from_param_files(node, "ctrl", "/ns", files, "fallback_controllers") == [
+        "f"
+    ]
